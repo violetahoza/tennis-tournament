@@ -25,8 +25,6 @@ A full-stack web application built to streamline the organization and management
 
 ---
 
-## 📦 Installation
-
 ### 🔧 Prerequisites
 
 - Node.js & npm
