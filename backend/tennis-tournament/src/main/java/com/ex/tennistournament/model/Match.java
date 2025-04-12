@@ -10,6 +10,28 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
 
+/**
+ * Entity class representing a tennis match in the tournament system.
+ * Maps to the 'matches' table in the database.
+ *
+ * Relationships:
+ * - Many-to-One with Tournament
+ * - Many-to-One with User (player1, player2, referee)
+ *
+ * Key features:
+ * - Unique identifier for each match
+ * - References to both players and referee
+ * - Court assignment and scheduling information
+ * - Match status tracking (SCHEDULED, IN_PROGRESS, etc.)
+ * - Tournament round tracking (ROUND_1, QUARTER_FINAL, etc.)
+ * - Automatic timestamp management
+ *
+ * Constraints:
+ * - Tournament, players, and referee are required
+ * - Scheduled time is mandatory
+ * - Status must be one of predefined enum values
+ * - Court number is optional
+ */
 @Entity
 @Table(name = "matches")
 @Data
@@ -58,10 +80,18 @@ public class Match {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    /**
+     * Enum defining possible match statuses.
+     * Used to track the progression of a match.
+     */
     public enum MatchStatus {
         SCHEDULED, IN_PROGRESS, COMPLETED, CANCELLED
     }
 
+    /**
+     * Enum defining tournament rounds.
+     * Represents the stage of the tournament.
+     */
     public enum Round {
         ROUND_1, ROUND_2, QUARTER_FINAL, SEMI_FINAL, FINAL
     }

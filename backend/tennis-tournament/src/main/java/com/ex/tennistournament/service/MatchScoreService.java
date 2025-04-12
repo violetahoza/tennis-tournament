@@ -21,6 +21,33 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * Service class for managing tennis match scores and game progression.
+ * Handles creation, updates, and completion of match scores while enforcing tennis rules.
+ *
+ * Key responsibilities:
+ * - Managing match scores (create, update, delete)
+ * - Validating tennis scoring rules
+ * - Tracking match progress and completion
+ * - Notifying observers of score changes
+ * - Managing match completion logic
+ * - Sending notifications to relevant users
+ *
+ * Security features:
+ * - Validates referee permissions
+ * - Ensures only authorized users can modify scores
+ *
+ * Dependencies:
+ * - MatchScoreRepository: For score persistence
+ * - MatchRepository: For match data access
+ * - MatchScoreSubject: For observer pattern implementation
+ * - MatchScoreLogger: For logging score changes
+ * - NotificationService: For sending real-time notifications
+ *
+ * Design patterns:
+ * - Observer Pattern: For score change notifications
+ * - Builder Pattern: For DTO construction
+ */
 @Service
 @RequiredArgsConstructor
 public class MatchScoreService {

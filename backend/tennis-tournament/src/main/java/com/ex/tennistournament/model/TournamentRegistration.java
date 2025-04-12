@@ -8,6 +8,25 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
+/**
+ * Entity class representing tournament registrations.
+ * Maps to the 'tournament_registrations' table in the database.
+ *
+ * Relationships:
+ * - Many-to-One with User (as player)
+ * - Many-to-One with Tournament
+ *
+ * Key features:
+ * - Tracks player registration status for tournaments
+ * - Enforces unique player-tournament combinations
+ * - Registration status lifecycle management
+ * - Timestamps for registration tracking
+ *
+ * Constraints:
+ * - Player and tournament references are required
+ * - Status must be one of: PENDING, APPROVED, REJECTED, WAITLISTED
+ * - Unique constraint on player_id and tournament_id combination
+ */
 @Entity
 @Table(name = "tournament_registrations",
         uniqueConstraints = @UniqueConstraint(columnNames = {"player_id", "tournament_id"}))

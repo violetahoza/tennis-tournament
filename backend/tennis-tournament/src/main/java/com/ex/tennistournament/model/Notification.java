@@ -7,6 +7,26 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
+/**
+ * Entity class representing user notifications.
+ * Maps to the 'notifications' table in the database.
+ *
+ * Features:
+ * - User-specific notifications
+ * - Read status tracking
+ * - Notification type categorization
+ * - Automatic timestamp tracking
+ *
+ * Use cases:
+ * - Tournament registration updates
+ * - Match schedule notifications
+ * - System announcements
+ *
+ * Constraints:
+ * - Message and type are required
+ * - Read status defaults to false
+ * - Timestamp is automatically set
+ */
 @Entity
 @Table(name = "notifications")
 @Data

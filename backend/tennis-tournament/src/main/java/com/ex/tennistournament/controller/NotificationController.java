@@ -14,7 +14,24 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * REST controller for notification management
+ * REST Controller for managing user notifications.
+ * Handles notification retrieval and status updates.
+ *
+ * Features:
+ * - Retrieves notifications for authenticated users
+ * - Marks notifications as read (single or all)
+ * - Real-time notification updates via WebSocket
+ * - User-specific notification filtering
+ *
+ * Security:
+ * - Requires authenticated user
+ * - User can only access their own notifications
+ * - Validates user authentication in each operation
+ *
+ * Integration:
+ * - Works with NotificationService for WebSocket updates
+ * - Uses NotificationRepository for persistence
+ * - Handles notification mapping between entity and DTO
  */
 @RestController
 @RequestMapping("/api/notifications")
@@ -25,7 +42,10 @@ public class NotificationController {
     private final NotificationService notificationService;
 
     /**
-     * Get all notifications for the current user
+     * Retrieves all notifications for the authenticated user.
+     * Notifications are sorted by timestamp in descending order.
+     *
+     * @return ResponseEntity containing list of notifications or bad request if not authenticated
      */
     @GetMapping
     public ResponseEntity<List<NotificationDto>> getNotifications() {
@@ -47,7 +67,11 @@ public class NotificationController {
     }
 
     /**
-     * Mark a notification as read
+     * Marks a specific notification as read for the authenticated user.
+     * Updates both repository and real-time notification state.
+     *
+     * @param notificationId ID of the notification to mark as read
+     * @return ResponseEntity with no content on success or bad request if not authenticated
      */
     @PutMapping("/{notificationId}/read")
     public ResponseEntity<Void> markAsRead(@PathVariable Long notificationId) {
@@ -63,7 +87,10 @@ public class NotificationController {
     }
 
     /**
-     * Mark all notifications as read for the current user
+     * Marks all notifications as read for the authenticated user.
+     * Updates both repository and real-time notification states.
+     *
+     * @return ResponseEntity with no content on success or bad request if not authenticated
      */
     @PutMapping("/read-all")
     public ResponseEntity<Void> markAllAsRead() {
@@ -79,7 +106,11 @@ public class NotificationController {
     }
 
     /**
-     * Map a Notification entity to a NotificationDto
+     * Maps a Notification entity to a NotificationDto.
+     * Transfers all relevant fields while maintaining data integrity.
+     *
+     * @param notification The notification entity to map
+     * @return Mapped NotificationDto
      */
     private NotificationDto mapToDto(Notification notification) {
         NotificationDto dto = new NotificationDto();

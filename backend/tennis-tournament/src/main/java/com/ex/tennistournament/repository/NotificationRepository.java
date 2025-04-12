@@ -7,6 +7,10 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Repository interface for managing Notification entities.
+ * This interface extends JpaRepository to provide CRUD operations and custom query methods.
+ */
 @Repository
 public interface NotificationRepository extends JpaRepository<Notification, Long> {
     List<Notification> findByUserIdOrderByTimestampDesc(Long userId);

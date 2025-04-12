@@ -4,8 +4,8 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Enhanced MatchScoreEvent with type information to help differentiate
- * between different types of match score events.
+ * Event class representing a score update in a tennis match.
+ * Used in the Observer pattern to notify interested parties about score changes.
  */
 @Getter
 @RequiredArgsConstructor
@@ -16,9 +16,8 @@ public class MatchScoreEvent {
     private final Integer player2Score;
     private final String player1Name;
     private final String player2Name;
-    private final String type; // New field to specify event type
+    private final String type;
 
-    // Constructors can be updated to include the type
     public MatchScoreEvent(
             Long matchId,
             Long setNumber,

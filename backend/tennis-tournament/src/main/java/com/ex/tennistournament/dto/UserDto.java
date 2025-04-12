@@ -11,7 +11,10 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-
+/**
+ * DTO for user lookup and basic user information.
+ * Used for displaying user details without sensitive information.
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

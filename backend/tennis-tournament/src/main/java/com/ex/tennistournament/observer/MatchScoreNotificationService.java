@@ -13,7 +13,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Improved notification service to prevent duplicate notifications
+ * Service responsible for handling match score notifications in the tennis tournament system.
+ * Implements the Observer pattern to receive and process match score events.
  */
 @Service
 @Slf4j

@@ -9,6 +9,10 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 import java.util.List;
 
+/**
+ * DTO for match summary information.
+ * Provides a comprehensive overview of a tennis match including players, scores, and status.
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

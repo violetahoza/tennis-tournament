@@ -4,8 +4,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 /**
- * MatchScoreLogger provides centralized logging for match score events
- * without sending duplicate notifications.
+ * Observer implementation for logging match score events.
+ * Listens for match score updates and logs them to the application log.
  */
 @Component
 @Slf4j

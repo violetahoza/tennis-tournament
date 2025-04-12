@@ -15,6 +15,27 @@ import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.Collections;
 
+/**
+ * Entity class representing system users with authentication.
+ * Maps to the 'users' table in the database.
+ * Implements Spring Security's UserDetails interface.
+ *
+ * User Types:
+ * - PLAYER: Regular tournament participant
+ * - REFEREE: Match official
+ * - ADMIN: System administrator
+ *
+ * Features:
+ * - Authentication and authorization
+ * - Basic user information
+ * - Automatic timestamp management
+ * - Account status tracking
+ *
+ * Constraints:
+ * - Unique username and email
+ * - Required personal information
+ * - Password encryption (handled by security config)
+ */
 @Entity
 @Table(name = "users")
 @Data
@@ -53,6 +74,13 @@ public class User implements UserDetails {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    /**
+     * Enum defining available user roles.
+     * Used for role-based access control.
+     *
+     * Roles hierarchy:
+     * ADMIN > REFEREE > PLAYER
+     */
     public enum UserType {
         PLAYER, REFEREE, ADMIN
     }

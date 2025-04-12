@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
-  Paper, Button, Typography, Box, Divider, Alert, CircularProgress,
+  Paper, Button, Typography, Box, Divider, CircularProgress,
   Grid, TextField, Card, CardContent, TableContainer, Table, TableBody,
-  TableCell, TableHead, TableRow, Chip, FormControl, InputLabel, Select,
-  MenuItem, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle
+  TableCell, TableHead, TableRow, Chip, Dialog, DialogActions, 
+  DialogContent, DialogContentText, DialogTitle, Snackbar, Alert
 } from '@mui/material';
 import { ArrowBack as ArrowBackIcon, Add as AddIcon, Delete as DeleteIcon, 
          Save as SaveIcon, EmojiEvents as WinnerIcon } from '@mui/icons-material';
@@ -19,8 +19,6 @@ const MatchScoring = () => {
   const [scores, setScores] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(null);
   
   // Form states
   const [newSet, setNewSet] = useState({
@@ -33,7 +31,15 @@ const MatchScoring = () => {
   // Dialog states
   const [openSetDialog, setOpenSetDialog] = useState(false);
   const [openCompleteDialog, setOpenCompleteDialog] = useState(false);
+  const [openErrorDialog, setOpenErrorDialog] = useState(false);
+  const [openSuccessDialog, setOpenSuccessDialog] = useState(false);
+  const [dialogMessage, setDialogMessage] = useState('');
   
+  // Snackbar states
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [snackbarSeverity, setSnackbarSeverity] = useState('info');
+
   useEffect(() => {
     fetchMatchData();
   }, [id]);
@@ -57,7 +63,7 @@ const MatchScoring = () => {
       ]);
     } catch (error) {
       console.error('Error fetching data:', error);
-      setError('An error occurred while fetching match data.');
+      showErrorDialog('An error occurred while fetching match data.');
     } finally {
       setLoading(false);
     }
@@ -70,7 +76,7 @@ const MatchScoring = () => {
       return res.data;
     } catch (err) {
       console.error('Error fetching match:', err);
-      setError('Error fetching match details. Please try again.');
+      showErrorDialog('Error fetching match details. Please try again.');
       throw err;
     }
   };
@@ -90,16 +96,30 @@ const MatchScoring = () => {
     navigate('/referee/matches');
   };
 
+  const showErrorDialog = (message) => {
+    setDialogMessage(message);
+    setOpenErrorDialog(true);
+  };
+
+  const showSuccessDialog = (message) => {
+    setDialogMessage(message);
+    setOpenSuccessDialog(true);
+  };
+
+  const showSnackbar = (message, severity = 'info') => {
+    setSnackbarMessage(message);
+    setSnackbarSeverity(severity);
+    setSnackbarOpen(true);
+  };
+
   const handleAddSet = async () => {
     try {
       validateSetScore();
       setSubmitting(true);
-      setError(null);
-      setSuccess(null);
       
       const res = await axios.post(API_ENDPOINTS.MATCH_SCORES.CREATE, newSet);
       setScores([...scores, res.data]);
-      setSuccess('Set score added successfully!');
+      showSuccessDialog('Set score added successfully!');
       setOpenSetDialog(false);
       
       // If match is SCHEDULED, update to IN_PROGRESS
@@ -107,7 +127,7 @@ const MatchScoring = () => {
         await updateMatchStatus('IN_PROGRESS');
       }
     } catch (err) {
-      setError(err.message || err.response?.data?.message || 'Error adding set score. Please try again.');
+      showErrorDialog(err.message || err.response?.data?.message || 'Error adding set score. Please try again.');
       console.error(err);
     } finally {
       setSubmitting(false);
@@ -117,17 +137,44 @@ const MatchScoring = () => {
   const handleDeleteSet = async (scoreId) => {
     try {
       setSubmitting(true);
-      setError(null);
-      setSuccess(null);
       
       await axios.delete(API_ENDPOINTS.MATCH_SCORES.DELETE(scoreId));
       setScores(scores.filter(score => score.id !== scoreId));
-      setSuccess('Set score deleted successfully!');
+      showSnackbar('Set score deleted successfully!', 'success');
     } catch (err) {
-      setError(err.response?.data?.message || 'Error deleting set score. Please try again.');
+      showErrorDialog(err.response?.data?.message || 'Error deleting set score. Please try again.');
       console.error(err);
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const calculateWinner = () => {
+    if (!match || match.status !== 'COMPLETED') return null;
+    
+    let player1Sets = 0;
+    let player2Sets = 0;
+    
+    scores.forEach(score => {
+      if (score.player1Score > score.player2Score) {
+        player1Sets++;
+      } else if (score.player2Score > score.player1Score) {
+        player2Sets++;
+      }
+    });
+    
+    if (player1Sets > player2Sets) {
+      return {
+        name: match.player1Name,
+        sets: player1Sets,
+        opponentSets: player2Sets
+      };
+    } else {
+      return {
+        name: match.player2Name,
+        sets: player2Sets,
+        opponentSets: player1Sets
+      };
     }
   };
 
@@ -135,46 +182,36 @@ const MatchScoring = () => {
     try {
       // Validate that there are scores recorded
       if (scores.length === 0) {
-        setError('Cannot complete a match without any scores recorded.');
+        showErrorDialog('Cannot complete a match without any scores recorded.');
         setOpenCompleteDialog(false);
         return;
       }
       
       // Determine if there's a clear winner
-      let player1Sets = 0;
-      let player2Sets = 0;
+      const winner = calculateWinner();
       
-      scores.forEach(score => {
-        if (score.player1Score > score.player2Score) {
-          player1Sets++;
-        } else if (score.player2Score > score.player1Score) {
-          player2Sets++;
-        }
-      });
-      
-      // Check if we have a winner
-      if (player1Sets === player2Sets) {
-        setError('Cannot complete the match with tied scores. There must be a winner.');
+      if (!winner) {
+        showErrorDialog('Cannot complete the match with tied scores. There must be a winner.');
         setOpenCompleteDialog(false);
         return;
       }
       
       setSubmitting(true);
-      setError(null);
-      setSuccess(null);
       
       await axios.post(API_ENDPOINTS.MATCH_SCORES.COMPLETE_MATCH(id));
       
       // Update match object
       setMatch(prev => ({
         ...prev,
-        status: 'COMPLETED'
+        status: 'COMPLETED',
+        winnerId: winner.name === match.player1Name ? match.player1Id : match.player2Id,
+        winnerName: winner.name
       }));
       
-      setSuccess('Match completed successfully!');
+      showSuccessDialog(`Match completed successfully! Winner: ${winner.name}`);
       setOpenCompleteDialog(false);
     } catch (err) {
-      setError(err.response?.data?.message || 'Error completing match. Please try again.');
+      showErrorDialog(err.response?.data?.message || 'Error completing match. Please try again.');
       console.error(err);
     } finally {
       setSubmitting(false);
@@ -254,6 +291,18 @@ const MatchScoring = () => {
     setOpenCompleteDialog(false);
   };
   
+  const handleCloseErrorDialog = () => {
+    setOpenErrorDialog(false);
+  };
+  
+  const handleCloseSuccessDialog = () => {
+    setOpenSuccessDialog(false);
+  };
+  
+  const handleSnackbarClose = () => {
+    setSnackbarOpen(false);
+  };
+  
   const handleSetChange = (e) => {
     const { name, value } = e.target;
     setNewSet({
@@ -294,11 +343,23 @@ const MatchScoring = () => {
 
   if (!match) {
     return (
-      <Alert severity="error">
-        Match not found. <Button onClick={handleBack}>Go Back</Button>
-      </Alert>
+      <Dialog open={true} onClose={handleBack}>
+        <DialogTitle>Match Not Found</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            The requested match could not be found.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleBack}>Go Back</Button>
+        </DialogActions>
+      </Dialog>
     );
   }
+
+  const winner = calculateWinner();
+  const player1Sets = scores.reduce((acc, score) => acc + (score.player1Score > score.player2Score ? 1 : 0), 0);
+  const player2Sets = scores.reduce((acc, score) => acc + (score.player2Score > score.player1Score ? 1 : 0), 0);
 
   return (
     <Paper sx={{ p: 3 }}>
@@ -315,14 +376,21 @@ const MatchScoring = () => {
             Match Scoring
           </Typography>
         </Box>
-        <Chip 
-          label={match.status} 
-          color={getStatusColor(match.status)}
-        />
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          {match.status === 'COMPLETED' && winner && (
+            <Chip 
+              icon={<WinnerIcon />}
+              label={`Winner: ${winner.name}`}
+              color="success"
+              variant="outlined"
+            />
+          )}
+          <Chip 
+            label={match.status} 
+            color={getStatusColor(match.status)}
+          />
+        </Box>
       </Box>
-
-      {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
-      {success && <Alert severity="success" sx={{ mb: 3 }}>{success}</Alert>}
 
       <Card sx={{ mb: 3 }}>
         <CardContent>
@@ -332,6 +400,11 @@ const MatchScoring = () => {
               <Typography variant="body1" gutterBottom><strong>Date & Time:</strong> {formatDateTime(match.scheduledTime)}</Typography>
               <Typography variant="body1" gutterBottom><strong>Court:</strong> {match.courtNumber}</Typography>
               <Typography variant="body1" gutterBottom><strong>Round:</strong> {match.round}</Typography>
+              {match.status === 'COMPLETED' && winner && (
+                <Typography variant="body1" gutterBottom>
+                  <strong>Final Score:</strong> {winner.sets}-{winner.opponentSets}
+                </Typography>
+              )}
             </Grid>
           </Grid>
         </CardContent>
@@ -342,13 +415,35 @@ const MatchScoring = () => {
           <Typography variant="h6" gutterBottom>Players</Typography>
           <Grid container spacing={3}>
             <Grid item xs={6}>
-              <Box sx={{ textAlign: 'center', p: 2, backgroundColor: '#f5f5f5', borderRadius: 1 }}>
+              <Box sx={{ 
+                textAlign: 'center', 
+                p: 2, 
+                backgroundColor: '#f5f5f5', 
+                borderRadius: 1,
+                border: match.status === 'COMPLETED' && winner?.name === match.player1Name ? '2px solid #4caf50' : 'none'
+              }}>
                 <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>{match.player1Name}</Typography>
+                {match.status === 'COMPLETED' && (
+                  <Typography variant="body2">
+                    Sets won: {player1Sets}
+                  </Typography>
+                )}
               </Box>
             </Grid>
             <Grid item xs={6}>
-              <Box sx={{ textAlign: 'center', p: 2, backgroundColor: '#f5f5f5', borderRadius: 1 }}>
+              <Box sx={{ 
+                textAlign: 'center', 
+                p: 2, 
+                backgroundColor: '#f5f5f5', 
+                borderRadius: 1,
+                border: match.status === 'COMPLETED' && winner?.name === match.player2Name ? '2px solid #4caf50' : 'none'
+              }}>
                 <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>{match.player2Name}</Typography>
+                {match.status === 'COMPLETED' && (
+                  <Typography variant="body2">
+                    Sets won: {player2Sets}
+                  </Typography>
+                )}
               </Box>
             </Grid>
           </Grid>
@@ -390,8 +485,24 @@ const MatchScoring = () => {
                   {scores.map((score) => (
                     <TableRow key={score.id}>
                       <TableCell>{score.setNumber}</TableCell>
-                      <TableCell align="center">{score.player1Score}</TableCell>
-                      <TableCell align="center">{score.player2Score}</TableCell>
+                      <TableCell 
+                        align="center"
+                        sx={{ 
+                          fontWeight: score.player1Score > score.player2Score ? 'bold' : 'normal',
+                          color: score.player1Score > score.player2Score ? '#4caf50' : 'inherit'
+                        }}
+                      >
+                        {score.player1Score}
+                      </TableCell>
+                      <TableCell 
+                        align="center"
+                        sx={{ 
+                          fontWeight: score.player2Score > score.player1Score ? 'bold' : 'normal',
+                          color: score.player2Score > score.player1Score ? '#4caf50' : 'inherit'
+                        }}
+                      >
+                        {score.player2Score}
+                      </TableCell>
                       {match.status !== 'COMPLETED' && (
                         <TableCell>
                           <Button
@@ -413,7 +524,6 @@ const MatchScoring = () => {
         </CardContent>
       </Card>
 
-      {/* Match Completion Button */}
       {scores.length > 0 && match.status !== 'COMPLETED' && (
         <Box sx={{ textAlign: 'center' }}>
           <Button
@@ -428,7 +538,6 @@ const MatchScoring = () => {
         </Box>
       )}
 
-      {/* Add Set Dialog */}
       <Dialog open={openSetDialog} onClose={handleCloseSetDialog}>
         <DialogTitle>Add Set Score</DialogTitle>
         <DialogContent>
@@ -480,7 +589,6 @@ const MatchScoring = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Complete Match Dialog */}
       <Dialog open={openCompleteDialog} onClose={handleCloseCompleteDialog}>
         <DialogTitle>Complete Match</DialogTitle>
         <DialogContent>
@@ -488,6 +596,20 @@ const MatchScoring = () => {
             Are you sure you want to mark this match as completed?
             This action will finalize the match result and cannot be undone.
           </DialogContentText>
+          {scores.length > 0 && (
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="subtitle1">Current Score Summary:</Typography>
+              <Typography>
+                {match.player1Name}: {player1Sets} sets
+              </Typography>
+              <Typography>
+                {match.player2Name}: {player2Sets} sets
+              </Typography>
+              <Typography variant="subtitle1" sx={{ mt: 1, color: '#4caf50' }}>
+                Winner: {player1Sets > player2Sets ? match.player1Name : match.player2Name}
+              </Typography>
+            </Box>
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseCompleteDialog}>Cancel</Button>
@@ -501,6 +623,41 @@ const MatchScoring = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <Dialog open={openErrorDialog} onClose={handleCloseErrorDialog}>
+        <DialogTitle>Error</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {dialogMessage}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseErrorDialog}>OK</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={openSuccessDialog} onClose={handleCloseSuccessDialog}>
+        <DialogTitle>Success</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {dialogMessage}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseSuccessDialog}>OK</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={6000}
+        onClose={handleSnackbarClose}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={handleSnackbarClose} severity={snackbarSeverity} sx={{ width: '100%' }}>
+          {snackbarMessage}
+        </Alert>
+      </Snackbar>
     </Paper>
   );
 };

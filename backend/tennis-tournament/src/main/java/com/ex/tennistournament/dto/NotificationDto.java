@@ -8,7 +8,8 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 /**
- * Data Transfer Object for notifications sent to users
+ * DTO for tennis match score data.
+ * Represents the score for a specific set in a tennis match.
  */
 @Data
 @NoArgsConstructor

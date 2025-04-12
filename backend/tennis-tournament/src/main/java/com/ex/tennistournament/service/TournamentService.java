@@ -16,7 +16,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Collectors;
-
+/**
+ * Service class for managing tennis tournaments.
+ * Handles tournament lifecycle operations and enforces business rules.
+ */
 @Service
 @RequiredArgsConstructor
 public class TournamentService {
@@ -159,9 +162,31 @@ public class TournamentService {
             throw new IllegalStateException("Cannot delete a tournament with approved registrations. Remove the registrations first.");
         }
 
+//        // Check if tournament can be deleted based on match statuses
+//        if (!canDeleteTournament(id)) {
+//            throw new IllegalStateException(
+//                    "Cannot delete tournament - not all matches are completed or cancelled. " +
+//                            "Please complete or cancel all matches before deleting the tournament."
+//            );
+//        }
+//
+//        // Delete all registrations first
+//        registrationRepository.deleteByTournamentId(tournament.getId());
+
         // Delete the tournament
         tournamentRepository.deleteById(id);
     }
+
+//    public boolean canDeleteTournament(Long tournamentId) {
+//        List<Match> matches = matchRepository.findByTournamentId(tournamentId);
+//        if (matches.isEmpty()) {
+//            return true; // No matches means it can be deleted
+//        }
+//
+//        return matches.stream()
+//                .allMatch(m -> m.getStatus() == Match.MatchStatus.COMPLETED ||
+//                        m.getStatus() == Match.MatchStatus.CANCELLED);
+//    }
 
     private TournamentDto mapToDto(Tournament tournament) {
         return TournamentDto.builder()

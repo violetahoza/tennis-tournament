@@ -28,6 +28,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * Service class for managing user operations in the tennis tournament system.
+ * Provides user authentication, registration, and profile management.
+ */
 @Service
 @RequiredArgsConstructor
 public class UserService {

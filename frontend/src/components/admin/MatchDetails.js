@@ -293,18 +293,6 @@ const MatchDetails = () => {
     }
   };
 
-  const formatDateTime = (dateTimeString) => {
-    if (!dateTimeString) return 'N/A';
-    const date = new Date(dateTimeString);
-    return date.toLocaleString();
-  };
-
-  // Get player names for display in scores
-  const getPlayerName = (playerId) => {
-    const player = allPlayers.find(p => p.id === playerId);
-    return player ? `${player.firstName} ${player.lastName}` : 'Unknown Player';
-  };
-
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>

@@ -7,6 +7,10 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
+/**
+ * Repository interface for managing MatchScore entities.
+ * This interface extends JpaRepository to provide CRUD operations and custom query methods.
+ */
 @Repository
 public interface MatchScoreRepository extends JpaRepository<MatchScore, Long> {
     List<MatchScore> findByMatch(Match match);

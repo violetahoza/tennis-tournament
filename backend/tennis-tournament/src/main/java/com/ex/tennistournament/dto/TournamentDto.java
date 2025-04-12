@@ -11,6 +11,10 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 
+/**
+ * DTO for tournament data.
+ * Represents tournament information including scheduling, status, and participants.
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

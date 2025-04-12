@@ -5,7 +5,7 @@ import {
   Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, 
   Button, Typography, Box, TextField, Select, MenuItem, FormControl, InputLabel,
   Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle,
-  Chip, CircularProgress, Alert, IconButton, Tooltip
+  Chip, CircularProgress, IconButton, Snackbar
 } from '@mui/material';
 import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon, EmojiEvents as TournamentIcon } from '@mui/icons-material';
 import { API_ENDPOINTS } from '../../config';
@@ -19,6 +19,9 @@ const TournamentList = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [tournamentToDelete, setTournamentToDelete] = useState(null);
   const [deleteInProgress, setDeleteInProgress] = useState(false);
+  const [errorDialogOpen, setErrorDialogOpen] = useState(false);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
   
   const navigate = useNavigate();
 
@@ -33,11 +36,21 @@ const TournamentList = () => {
       setTournaments(res.data);
       setError(null);
     } catch (err) {
-      setError('Error fetching tournaments. Please try again.');
-      console.error(err);
+      handleError('Error fetching tournaments. Please try again.', err);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleError = (message, err) => {
+    console.error(err);
+    setError(message);
+    setErrorDialogOpen(true);
+  };
+
+  const handleSuccess = (message) => {
+    setSnackbarMessage(message);
+    setSnackbarOpen(true);
   };
 
   const handleAddTournament = () => {
@@ -62,18 +75,17 @@ const TournamentList = () => {
       setTournaments(tournaments.filter(t => t.id !== tournamentToDelete.id));
       setDeleteDialogOpen(false);
       setTournamentToDelete(null);
+      handleSuccess('Tournament deleted successfully');
     } catch (err) {
-      console.error('Error deleting tournament:', err);
       let errorMessage = 'Error deleting tournament. Please try again.';
       
-      // Get more specific error message if available
       if (err.response?.data?.message) {
         errorMessage = err.response.data.message;
       } else if (err.response?.data?.error) {
         errorMessage = err.response.data.error;
       }
       
-      setError(errorMessage);
+      handleError(errorMessage, err);
     } finally {
       setDeleteInProgress(false);
     }
@@ -85,6 +97,14 @@ const TournamentList = () => {
 
   const handleStatusFilterChange = (e) => {
     setStatusFilter(e.target.value);
+  };
+
+  const handleCloseErrorDialog = () => {
+    setErrorDialogOpen(false);
+  };
+
+  const handleCloseSnackbar = () => {
+    setSnackbarOpen(false);
   };
 
   // Filter tournaments based on search term and status filter
@@ -111,7 +131,6 @@ const TournamentList = () => {
     return isOpen ? 'success' : 'error';
   };
 
-  // Check if a tournament is upcoming (start date is in the future)
   const isUpcomingTournament = (tournament) => {
     return new Date(tournament.startDate) > new Date();
   };
@@ -137,8 +156,6 @@ const TournamentList = () => {
           Add Tournament
         </Button>
       </Box>
-
-      {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
 
       <Box sx={{ display: 'flex', mb: 3, gap: 2 }}>
         <TextField
@@ -228,7 +245,6 @@ const TournamentList = () => {
         </Table>
       </TableContainer>
 
-      {/* Delete Confirmation Dialog */}
       <Dialog
         open={deleteDialogOpen}
         onClose={() => !deleteInProgress && setDeleteDialogOpen(false)}
@@ -250,6 +266,31 @@ const TournamentList = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <Dialog
+        open={errorDialogOpen}
+        onClose={handleCloseErrorDialog}
+      >
+        <DialogTitle>Error</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {error}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseErrorDialog} color="primary">
+            OK
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={6000}
+        onClose={handleCloseSnackbar}
+        message={snackbarMessage}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      />
     </>
   );
 };

@@ -314,26 +314,22 @@ const TournamentDetails = () => {
     }
   };
 
-  // Open dialog to update registration status
   const handleOpenStatusDialog = (registration) => {
     setSelectedRegistration(registration);
     setNewStatus(registration.status);
     setRegistrationDialogOpen(true);
   };
 
-  // Close registration status dialog
   const handleCloseStatusDialog = () => {
     setRegistrationDialogOpen(false);
     setSelectedRegistration(null);
     setNewStatus('');
   };
 
-  // Handle status change in dialog
   const handleStatusChange = (e) => {
     setNewStatus(e.target.value);
   };
 
-  // Submit registration status update
   const handleUpdateRegistrationStatus = async () => {
     if (!selectedRegistration || !newStatus) return;
     
@@ -359,7 +355,6 @@ const TournamentDetails = () => {
     }
   };
 
-  // Quick approve/reject functions
   const handleQuickApprove = async (registration) => {
     try {
       await axios.put(

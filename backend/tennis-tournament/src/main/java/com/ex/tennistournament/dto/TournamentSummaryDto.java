@@ -7,6 +7,10 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 
+/**
+ * DTO for tournament summary information.
+ * Provides a condensed view of tournament details for listing and overview purposes.
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

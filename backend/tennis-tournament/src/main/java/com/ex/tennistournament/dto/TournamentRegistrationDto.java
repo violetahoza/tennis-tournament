@@ -8,6 +8,10 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
+/**
+ * DTO for tournament registration.
+ * Used when players sign up for tournaments.
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

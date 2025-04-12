@@ -11,6 +11,26 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+/**
+ * Entity class representing a tennis tournament.
+ * Maps to the 'tournaments' table in the database.
+ *
+ * Relationships:
+ * - One-to-Many with Match
+ * - Many-to-Many with User (participants)
+ *
+ * Key features:
+ * - Tournament metadata (name, location, dates)
+ * - Participant management
+ * - Registration control
+ * - Automatic timestamp tracking
+ *
+ * Constraints:
+ * - Name and location are required
+ * - Start date must be before end date
+ * - Maximum participants must be positive
+ * - Organizer reference is required
+ */
 @Entity
 @Table(name = "tournaments")
 @Data

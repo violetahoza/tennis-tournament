@@ -4,8 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Abstract implementation of the Subject interface.
- * This provides default implementations of attach, detach, and notifyObservers.
+ * Abstract base class implementing the Subject interface in the Observer pattern.
+ *  * Manages observer registration and notification.
  */
 public abstract class AbstractSubject implements Subject {
     private final List<Observer> observers = new ArrayList<>();

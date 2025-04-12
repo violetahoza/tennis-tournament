@@ -9,6 +9,10 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
+/**
+ * DTO for tennis match data transfer.
+ * Represents match details including players, tournament, and scheduling information.
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

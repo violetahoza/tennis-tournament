@@ -67,14 +67,18 @@ const MatchSchedule = () => {
 
   // Filter matches based on tab
   const filteredMatches = matches.filter(match => {
-    if (tabValue === 0) { // All matches
-      return true;
-    } else if (tabValue === 1) { // Upcoming matches
-      return match.status === 'SCHEDULED';
-    } else if (tabValue === 2) { // Past matches
-      return match.status === 'COMPLETED';
+    switch(tabValue) {
+      case 0: // All matches
+        return true;
+      case 1: // Upcoming matches
+        return match.status === 'SCHEDULED';
+      case 2: // In progress matches
+        return match.status === 'IN_PROGRESS';
+      case 3: // Completed matches
+        return match.status === 'COMPLETED';
+      default:
+        return true;
     }
-    return true;
   });
 
   if (loading) {
@@ -92,7 +96,7 @@ const MatchSchedule = () => {
           My Match Schedule
         </Typography>
         <Typography variant="body1" color="textSecondary">
-          View your upcoming and past matches.
+          View your upcoming, in-progress, and past matches.
         </Typography>
       </Box>
 
@@ -101,8 +105,9 @@ const MatchSchedule = () => {
       <Paper sx={{ mb: 3 }}>
         <Tabs value={tabValue} onChange={handleTabChange} indicatorColor="primary" textColor="primary">
           <Tab label="All Matches" />
-          <Tab label="Upcoming Matches" />
-          <Tab label="Completed Matches" />
+          <Tab label="Upcoming" />
+          <Tab label="In Progress" />
+          <Tab label="Completed" />
         </Tabs>
       </Paper>
 
@@ -113,8 +118,10 @@ const MatchSchedule = () => {
             {tabValue === 1 
               ? "You don't have any upcoming matches scheduled."
               : tabValue === 2 
-                ? "You haven't played any matches yet."
-                : "You don't have any matches."}
+                ? "You don't have any matches in progress right now."
+                : tabValue === 3
+                  ? "You haven't completed any matches yet."
+                  : "You don't have any matches."}
           </Typography>
         </Paper>
       ) : (
@@ -149,7 +156,7 @@ const MatchSchedule = () => {
                     <TableCell>{match.refereeName}</TableCell>
                     <TableCell>
                       <Chip 
-                        label={match.status} 
+                        label={match.status.replace('_', ' ')} 
                         color={getStatusColor(match.status)}
                         size="small"
                       />

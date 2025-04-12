@@ -7,6 +7,10 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/**
+ * DTO for tennis match score data.
+ * Represents the score for a specific set in a tennis match.
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

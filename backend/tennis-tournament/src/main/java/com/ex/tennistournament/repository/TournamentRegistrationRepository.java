@@ -4,12 +4,18 @@ import com.ex.tennistournament.model.Tournament;
 import com.ex.tennistournament.model.TournamentRegistration;
 import com.ex.tennistournament.model.User;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Repository interface for managing TournamentRegistration entities.
+ * This interface extends JpaRepository to provide CRUD operations and custom query methods.
+ */
 @Repository
 public interface TournamentRegistrationRepository extends JpaRepository<TournamentRegistration, Long> {
     List<TournamentRegistration> findByPlayer(User player);
@@ -24,4 +30,9 @@ public interface TournamentRegistrationRepository extends JpaRepository<Tourname
             Long tournamentId,
             TournamentRegistration.RegistrationStatus status,
             int limit);
+
+//    @Transactional
+//    @Modifying
+//    @Query("DELETE FROM TournamentRegistration tr WHERE tr.tournament.id = ?1")
+//    void deleteByTournamentId(Long tournamentId);
 }

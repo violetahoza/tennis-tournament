@@ -5,6 +5,14 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/**
+ * Data Transfer Object for authentication login requests.
+ * Used to capture user credentials during login process.
+ *
+ * Validation:
+ * - Username must not be blank
+ * - Password must not be blank
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

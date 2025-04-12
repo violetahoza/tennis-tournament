@@ -27,6 +27,32 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+/**
+ * Service class for managing tennis matches in the tournament system.
+ * Handles CRUD operations for matches and enforces business rules.
+ *
+ * Key responsibilities:
+ * - Match management (create, read, update, delete)
+ * - Match validation and business rules
+ * - Player registration verification
+ * - Tournament scheduling validation
+ * - Match status tracking
+ * - Real-time notifications
+ * - Score tracking and winner determination
+ *
+ * Security features:
+ * - Validates player registrations
+ * - Enforces match status rules
+ * - Validates tournament dates
+ *
+ * Dependencies:
+ * - MatchRepository: For match persistence
+ * - MatchScoreRepository: For match scores
+ * - TournamentRepository: For tournament data
+ * - UserRepository: For player/referee data
+ * - TournamentRegistrationRepository: For registration verification
+ * - NotificationService: For real-time notifications
+ */
 @Service
 @RequiredArgsConstructor
 public class MatchService {

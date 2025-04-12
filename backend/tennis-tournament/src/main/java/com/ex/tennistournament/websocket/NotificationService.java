@@ -28,7 +28,17 @@ public class NotificationService {
     private final NotificationRepository notificationRepository;
 
     /**
-     * Sends a notification to a specific user via WebSocket
+     * Sends a real-time notification to a specific user via WebSocket.
+     * The notification is first persisted to the database before sending.
+     *
+     * Process:
+     * 1. Sets timestamp if not provided
+     * 2. Persists notification to database
+     * 3. Updates DTO with generated ID
+     * 4. Sends to WebSocket topic
+     *
+     * @param notification DTO containing notification details
+     * @throws Exception if message processing fails
      */
     @Transactional
     public void sendNotification(NotificationDto notification) {
@@ -59,7 +69,11 @@ public class NotificationService {
     }
 
     /**
-     * Marks a notification as read
+     * Marks a specific notification as read for a user.
+     * Only updates if notification exists and belongs to the user.
+     *
+     * @param userId User who owns the notification
+     * @param notificationId ID of notification to mark as read
      */
     @Transactional
     public void markNotificationAsRead(Long userId, Long notificationId) {
@@ -69,7 +83,12 @@ public class NotificationService {
                     notificationRepository.save(entity);
                 });
     }
-
+    /**
+     * Marks all unread notifications as read for a specific user.
+     * Updates each notification's read status in the database.
+     *
+     * @param userId User whose notifications to mark as read
+     */
     @Transactional
     public void markAllNotificationsAsRead(Long userId) {
         notificationRepository.findByUserIdAndReadFalse(userId)

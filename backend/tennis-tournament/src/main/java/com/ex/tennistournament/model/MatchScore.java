@@ -10,6 +10,25 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
 
+/**
+ * Entity class representing individual set scores for a tennis match.
+ * Maps to the 'match_scores' table in the database.
+ *
+ * Relationships:
+ * - Many-to-One with Match (each match can have multiple set scores)
+ *
+ * Key features:
+ * - Tracks scores for each set in a tennis match
+ * - Maintains set number for ordering
+ * - Records scores for both players
+ * - Automatic timestamp management
+ *
+ * Constraints:
+ * - Unique combination of match_id and set_number
+ * - Match reference is required
+ * - Set number and player scores cannot be null
+ * - Timestamps are automatically managed
+ */
 @Entity
 @Table(name = "match_scores",
         uniqueConstraints = @UniqueConstraint(columnNames = {"match_id", "set_number"}))

@@ -21,6 +21,23 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.Arrays;
 
+/**
+ * Spring Security configuration class for the tennis tournament application.
+ * Configures web security, authentication, authorization, and CORS settings.
+ *
+ * Key features:
+ * - JWT-based authentication
+ * - Stateless session management
+ * - CORS configuration
+ * - Custom authentication provider
+ * - Password encryption
+ * - Public and protected endpoints
+ *
+ * Security components:
+ * - AuthTokenFilter for JWT processing
+ * - AuthEntryPointJwt for handling unauthorized access
+ * - UserDetailsService for user authentication
+ */
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
@@ -31,6 +48,11 @@ public class WebSecurityConfig {
     private final AuthEntryPointJwt unauthorizedHandler;
     private final AuthTokenFilter authTokenFilter;
 
+    /**
+     * Configures the authentication provider with user details service and password encoder.
+     *
+     * @return configured DaoAuthenticationProvider
+     */
     @Bean
     public DaoAuthenticationProvider authenticationProvider() {
         DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
@@ -41,16 +63,34 @@ public class WebSecurityConfig {
         return authProvider;
     }
 
+    /**
+     * Creates the authentication manager bean.
+     *
+     * @param authConfig authentication configuration
+     * @return AuthenticationManager instance
+     */
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration authConfig) throws Exception {
         return authConfig.getAuthenticationManager();
     }
 
+    /**
+     * Creates the password encoder bean for secure password hashing.
+     *
+     * @return BCryptPasswordEncoder instance
+     */
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
+    /**
+     * Configures the security filter chain with custom settings.
+     * Updated to use non-deprecated methods for Spring Security 6.1+.
+     *
+     * @param http HttpSecurity to configure
+     * @return configured SecurityFilterChain
+     */
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http.cors().and().csrf().disable()
@@ -67,6 +107,11 @@ public class WebSecurityConfig {
         return http.build();
     }
 
+    /**
+     * Configures CORS settings for cross-origin requests.
+     *
+     * @return configured CorsConfigurationSource
+     */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();

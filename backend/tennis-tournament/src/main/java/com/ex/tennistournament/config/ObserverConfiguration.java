@@ -9,7 +9,18 @@ import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.context.event.EventListener;
 
 /**
- * Configuration class to register observers with subject
+ * Configuration class that sets up the Observer pattern for match score tracking.
+ * Handles the registration of observers to monitor match score changes.
+ *
+ * Key responsibilities:
+ * - Initializes and configures the Observer pattern components
+ * - Registers observers to the match score subject
+ * - Ensures proper setup of match score monitoring system
+ *
+ * Components managed:
+ * - MatchScoreSubject: The subject that notifies about score changes
+ * - MatchScoreLogger: Observer that logs score changes
+ * - MatchScoreNotificationService: Observer that sends notifications
  */
 @Configuration
 @RequiredArgsConstructor

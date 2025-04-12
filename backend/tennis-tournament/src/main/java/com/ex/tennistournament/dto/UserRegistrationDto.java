@@ -10,6 +10,10 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/**
+ * DTO for user registration.
+ * Contains user details required for creating a new account.
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

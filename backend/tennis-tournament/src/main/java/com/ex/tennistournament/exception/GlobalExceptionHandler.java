@@ -15,6 +15,27 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+/**
+ * Global exception handler for centralizing error handling across the application.
+ * Provides consistent error response formatting for different types of exceptions.
+ *
+ * Handles:
+ * - ResourceNotFoundException (404)
+ * - IllegalArgumentException (400)
+ * - IllegalStateException (400)
+ * - AccessDeniedException (403)
+ * - MethodArgumentNotValidException (400)
+ * - Generic Exception (500)
+ *
+ * Returns:
+ * - ErrorDetails object with timestamp, status, error type, message, and path
+ * - Custom validation error response for MethodArgumentNotValidException
+ *
+ * Used by:
+ * - Spring's exception handling mechanism
+ * - REST controllers automatically
+ * - Security error handling
+ */
 @ControllerAdvice
 public class GlobalExceptionHandler {
 

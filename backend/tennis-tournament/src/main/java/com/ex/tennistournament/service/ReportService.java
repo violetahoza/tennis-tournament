@@ -16,6 +16,10 @@ import java.nio.file.Paths;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
+/**
+ * Service class for generating match reports in various formats.
+ * Provides functionality to export match data in CSV and TXT formats.
+ */
 @Service
 @RequiredArgsConstructor
 public class ReportService {
