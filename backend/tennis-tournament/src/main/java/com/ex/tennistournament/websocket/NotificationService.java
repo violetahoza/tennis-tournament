@@ -27,12 +27,6 @@ public class NotificationService {
     private final ObjectMapper objectMapper;
     private final NotificationRepository notificationRepository;
 
-    // In-memory storage for notifications
-    //private final ConcurrentMap<Long, ConcurrentMap<Long, NotificationDto>> userNotifications = new ConcurrentHashMap<>();
-
-    // ID generator for in-memory notifications
-    private final AtomicLong idGenerator = new AtomicLong(1);
-
     /**
      * Sends a notification to a specific user via WebSocket
      */

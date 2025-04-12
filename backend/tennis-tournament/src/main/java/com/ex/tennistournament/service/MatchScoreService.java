@@ -94,9 +94,9 @@ public class MatchScoreService {
         // Notify observers about the new score
         matchScoreSubject.scoreAdded(match, savedScore);
 
-        // Send notifications to players and admin
-        sendScoreNotifications(match, savedScore, "Score added for set " + savedScore.getSetNumber() +
-                ": " + savedScore.getPlayer1Score() + "-" + savedScore.getPlayer2Score());
+//        // Send notifications to players and admin
+//        sendScoreNotifications(match, savedScore, "Score added for set " + savedScore.getSetNumber() +
+//                ": " + savedScore.getPlayer1Score() + "-" + savedScore.getPlayer2Score());
 
         return mapToDto(savedScore);
     }
@@ -132,9 +132,9 @@ public class MatchScoreService {
         // Notify observers about the updated score
         matchScoreSubject.scoreUpdated(match, updatedScore);
 
-        // Send notifications to players and admin
-        sendScoreNotifications(match, updatedScore, "Score updated for set " + updatedScore.getSetNumber() +
-                ": " + updatedScore.getPlayer1Score() + "-" + updatedScore.getPlayer2Score());
+//        // Send notifications to players and admin
+//        sendScoreNotifications(match, updatedScore, "Score updated for set " + updatedScore.getSetNumber() +
+//                ": " + updatedScore.getPlayer1Score() + "-" + updatedScore.getPlayer2Score());
 
         return mapToDto(updatedScore);
     }
@@ -166,7 +166,7 @@ public class MatchScoreService {
         matchScoreSubject.scoreDeleted(match, setNumber);
 
         // Send notifications to players and admin
-        sendScoreNotifications(match, null, "Score deleted for set " + setNumber);
+        //sendScoreNotifications(match, null, "Score deleted for set " + setNumber);
     }
 
     @Transactional
@@ -212,13 +212,13 @@ public class MatchScoreService {
         // Notify observers about the completed match
         matchScoreSubject.matchCompleted(match);
 
-        // Determine winner name
-        String winnerName = player1Sets > player2Sets ?
-                match.getPlayer1().getFirstName() + " " + match.getPlayer1().getLastName() :
-                match.getPlayer2().getFirstName() + " " + match.getPlayer2().getLastName();
-
-        // Send notifications to players and admin
-        sendMatchCompletionNotifications(match, winnerName);
+//        // Determine winner name
+//        String winnerName = player1Sets > player2Sets ?
+//                match.getPlayer1().getFirstName() + " " + match.getPlayer1().getLastName() :
+//                match.getPlayer2().getFirstName() + " " + match.getPlayer2().getLastName();
+//
+//        // Send notifications to players and admin
+//        sendMatchCompletionNotifications(match, winnerName);
     }
 
     /**
@@ -233,7 +233,7 @@ public class MatchScoreService {
 
         // Also notify admins (for this example, we'll use user ID 1 for admin, but in a real system you'd query for admin users)
         // In a real implementation, you would find all admin users and send them notifications
-        sendNotification(1L, "MATCH_SCORE", "Match " + match.getId() + " " + message);
+        // sendNotification(1L, "MATCH_SCORE", "Match " + match.getId() + " " + message);
     }
 
     /**

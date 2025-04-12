@@ -72,7 +72,6 @@ export const API_ENDPOINTS = {
     GET_ALL: `${API_BASE_URL}/api/notifications`,
     MARK_AS_READ: (id) => `${API_BASE_URL}/api/notifications/${id}/read`,
     MARK_ALL_AS_READ: `${API_BASE_URL}/api/notifications/read-all`,
-    //TEST: `${API_BASE_URL}/api/notifications/test` // For testing only
   },
   
   WEBSOCKET: `${API_BASE_URL}/ws`

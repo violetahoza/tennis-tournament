@@ -81,7 +81,6 @@ public class TournamentBuilder implements Builder<Tournament> {
             throw new IllegalStateException("Tournament must have at least 2 participants");
         }
 
-        // Additional validations
         LocalDate today = LocalDate.now();
 
         if (tournament.getStartDate().isBefore(today)) {

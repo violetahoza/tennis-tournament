@@ -57,21 +57,26 @@ const Notifications = () => {
     socket.onmessage = (event) => {
       const newNotification = JSON.parse(event.data);
       setNotifications(prev => {
-        // Check if notification already exists
-        const exists = prev.some(n => n.id === newNotification.id);
-        if (!exists) {
-          return [newNotification, ...prev].sort((a, b) => 
-            new Date(b.timestamp) - new Date(a.timestamp)
+          // More thorough duplicate check
+          const isDuplicate = prev.some(n => 
+              n.id === newNotification.id || 
+              (n.type === newNotification.type && 
+               n.message === newNotification.message && 
+               Math.abs(new Date(n.timestamp) - new Date(newNotification.timestamp)) < 5000)
           );
-        }
-        return prev;
+          
+          if (!isDuplicate) {
+              return [newNotification, ...prev].sort((a, b) => 
+                  new Date(b.timestamp) - new Date(a.timestamp)
+              );
+          }
+          return prev;
       });
       
-      // Update unread count if notification is new
       if (!newNotification.read) {
-        setUnreadCount(prev => prev + 1);
+          setUnreadCount(prev => prev + 1);
       }
-    };
+  };
 
     return () => socket.close();
   }, [auth.isAuthenticated, auth.user]);

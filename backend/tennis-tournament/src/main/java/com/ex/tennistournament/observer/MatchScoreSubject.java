@@ -1,13 +1,11 @@
 package com.ex.tennistournament.observer;
 
-import com.ex.tennistournament.dto.MatchScoreDto;
 import com.ex.tennistournament.model.Match;
 import com.ex.tennistournament.model.MatchScore;
 import org.springframework.stereotype.Component;
 
 /**
- * MatchScoreSubject is a concrete subject that tracks match score updates.
- * It extends the AbstractSubject which provides the basic observer pattern implementation.
+ * Updated MatchScoreSubject to include event type information
  */
 @Component
 public class MatchScoreSubject extends AbstractSubject {
@@ -19,7 +17,8 @@ public class MatchScoreSubject extends AbstractSubject {
                 score.getPlayer1Score(),
                 score.getPlayer2Score(),
                 match.getPlayer1().getFirstName() + " " + match.getPlayer1().getLastName(),
-                match.getPlayer2().getFirstName() + " " + match.getPlayer2().getLastName()
+                match.getPlayer2().getFirstName() + " " + match.getPlayer2().getLastName(),
+                "MATCH_SCORE_UPDATED"
         );
 
         notifyObservers("Match score updated", event);
@@ -32,7 +31,8 @@ public class MatchScoreSubject extends AbstractSubject {
                 score.getPlayer1Score(),
                 score.getPlayer2Score(),
                 match.getPlayer1().getFirstName() + " " + match.getPlayer1().getLastName(),
-                match.getPlayer2().getFirstName() + " " + match.getPlayer2().getLastName()
+                match.getPlayer2().getFirstName() + " " + match.getPlayer2().getLastName(),
+                "MATCH_SCORE_ADDED"
         );
 
         notifyObservers("New match score added", event);
@@ -45,7 +45,8 @@ public class MatchScoreSubject extends AbstractSubject {
                 null,
                 null,
                 match.getPlayer1().getFirstName() + " " + match.getPlayer1().getLastName(),
-                match.getPlayer2().getFirstName() + " " + match.getPlayer2().getLastName()
+                match.getPlayer2().getFirstName() + " " + match.getPlayer2().getLastName(),
+                "MATCH_SCORE_DELETED"
         );
 
         notifyObservers("Match score deleted", event);
@@ -58,7 +59,8 @@ public class MatchScoreSubject extends AbstractSubject {
                 null,
                 null,
                 match.getPlayer1().getFirstName() + " " + match.getPlayer1().getLastName(),
-                match.getPlayer2().getFirstName() + " " + match.getPlayer2().getLastName()
+                match.getPlayer2().getFirstName() + " " + match.getPlayer2().getLastName(),
+                "MATCH_COMPLETED"
         );
 
         notifyObservers("Match completed", event);

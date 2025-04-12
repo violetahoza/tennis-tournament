@@ -79,16 +79,6 @@ public class NotificationController {
     }
 
     /**
-     * Test endpoint to send a notification to a user
-     * This is for testing purposes only and should be removed in production
-     */
-    @PostMapping("/test")
-    public ResponseEntity<Void> sendTestNotification(@RequestBody NotificationDto notification) {
-        notificationService.sendNotification(notification);
-        return ResponseEntity.ok().build();
-    }
-
-    /**
      * Map a Notification entity to a NotificationDto
      */
     private NotificationDto mapToDto(Notification notification) {

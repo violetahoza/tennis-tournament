@@ -89,7 +89,6 @@ public class MatchBuilder implements Builder<Match> {
             throw new IllegalStateException("Match must have a round");
         }
 
-        // Additional validations
         if (match.getPlayer1().equals(match.getPlayer2())) {
             throw new IllegalStateException("Player 1 and Player 2 cannot be the same");
         }
