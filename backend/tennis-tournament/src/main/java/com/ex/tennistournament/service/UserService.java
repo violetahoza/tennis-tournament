@@ -1,12 +1,17 @@
 package com.ex.tennistournament.service;
 
+import com.ex.tennistournament.builder.UserBuilder;
 import com.ex.tennistournament.dto.JwtResponseDto;
 import com.ex.tennistournament.dto.LoginDto;
 import com.ex.tennistournament.dto.PasswordUpdateDto;
 import com.ex.tennistournament.dto.UserDto;
 import com.ex.tennistournament.dto.UserRegistrationDto;
 import com.ex.tennistournament.exception.ResourceNotFoundException;
+import com.ex.tennistournament.model.Match;
+import com.ex.tennistournament.model.TournamentRegistration;
 import com.ex.tennistournament.model.User;
+import com.ex.tennistournament.repository.MatchRepository;
+import com.ex.tennistournament.repository.TournamentRegistrationRepository;
 import com.ex.tennistournament.repository.UserRepository;
 import com.ex.tennistournament.security.JwtUtils;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +33,8 @@ import java.util.stream.Collectors;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final MatchRepository matchRepository;
+    private final TournamentRegistrationRepository registrationRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtUtils jwtUtils;
@@ -44,18 +51,22 @@ public class UserService {
             throw new IllegalArgumentException("Email is already in use");
         }
 
-        // Create new user
-        User user = User.builder()
-                .username(registrationDto.getUsername())
-                .password(passwordEncoder.encode(registrationDto.getPassword()))
-                .email(registrationDto.getEmail())
-                .firstName(registrationDto.getFirstName())
-                .lastName(registrationDto.getLastName())
-                .userType(registrationDto.getUserType())
-                .build();
+        try {
+            // Create new user using the Builder pattern
+            User user = new UserBuilder(passwordEncoder)
+                    .username(registrationDto.getUsername())
+                    .password(registrationDto.getPassword())
+                    .email(registrationDto.getEmail())
+                    .firstName(registrationDto.getFirstName())
+                    .lastName(registrationDto.getLastName())
+                    .userType(registrationDto.getUserType())
+                    .build();
 
-        User savedUser = userRepository.save(user);
-        return mapUserToDto(savedUser);
+            User savedUser = userRepository.save(user);
+            return mapUserToDto(savedUser);
+        } catch (IllegalStateException e) {
+            throw new IllegalArgumentException("Failed to register user: " + e.getMessage());
+        }
     }
 
     public JwtResponseDto authenticateUser(LoginDto loginDto) {
@@ -99,7 +110,7 @@ public class UserService {
 
     @Transactional
     public UserDto updateUser(Long id, UserDto userDto) {
-        User user = userRepository.findById(id)
+        User existingUser = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
 
         // Security check: ensure the current user can only update their own profile
@@ -112,35 +123,54 @@ public class UserService {
         }
 
         // Check if username is already taken by another user
-        if (!user.getUsername().equals(userDto.getUsername()) &&
+        if (!existingUser.getUsername().equals(userDto.getUsername()) &&
                 userRepository.existsByUsername(userDto.getUsername())) {
             throw new IllegalArgumentException("Username is already taken");
         }
 
         // Check if email is already in use by another user
-        if (!user.getEmail().equals(userDto.getEmail()) &&
+        if (!existingUser.getEmail().equals(userDto.getEmail()) &&
                 userRepository.existsByEmail(userDto.getEmail())) {
             throw new IllegalArgumentException("Email is already in use");
         }
 
-        user.setUsername(userDto.getUsername());
-        user.setEmail(userDto.getEmail());
-        user.setFirstName(userDto.getFirstName());
-        user.setLastName(userDto.getLastName());
+        try {
+            // Use Builder to create updated user
+            UserBuilder builder = new UserBuilder(passwordEncoder)
+                    .username(userDto.getUsername())
+                    .email(userDto.getEmail())
+                    .firstName(userDto.getFirstName())
+                    .lastName(userDto.getLastName());
 
-        // Only administrators can change user roles
-        if (currentUser.getUserType() == User.UserType.ADMIN && userDto.getUserType() != null) {
-            user.setUserType(userDto.getUserType());
+            // Only administrators can change user roles
+            if (currentUser.getUserType() == User.UserType.ADMIN && userDto.getUserType() != null) {
+                builder.userType(userDto.getUserType());
+            } else {
+                builder.userType(existingUser.getUserType());
+            }
+
+            // Update password if provided
+            String password = userDto.getPassword();
+            if (password != null && !password.isEmpty()) {
+                builder.password(password);
+            }
+
+            User updatedUser = builder.build();
+
+            // Set fields that should be preserved
+            updatedUser.setId(existingUser.getId());
+            updatedUser.setCreatedAt(existingUser.getCreatedAt());
+
+            // If password wasn't changed, preserve the existing encoded password
+            if (password == null || password.isEmpty()) {
+                updatedUser.setPassword(existingUser.getPassword());
+            }
+
+            User savedUser = userRepository.save(updatedUser);
+            return mapUserToDto(savedUser);
+        } catch (IllegalStateException e) {
+            throw new IllegalArgumentException("Failed to update user: " + e.getMessage());
         }
-
-        // Update password if provided
-        String password = userDto.getPassword();
-        if (password != null && !password.isEmpty()) {
-            user.setPassword(passwordEncoder.encode(password));
-        }
-
-        User updatedUser = userRepository.save(user);
-        return mapUserToDto(updatedUser);
     }
 
     @Transactional
@@ -165,18 +195,63 @@ public class UserService {
             throw new IllegalArgumentException("Current password is incorrect");
         }
 
-        // Update password
-        user.setPassword(passwordEncoder.encode(passwordDto.getNewPassword()));
-        User updatedUser = userRepository.save(user);
+        try {
+            // Validate the new password using the Builder
+            UserBuilder builder = new UserBuilder(passwordEncoder);
+            builder.password(passwordDto.getNewPassword());
 
-        return mapUserToDto(updatedUser);
+            // We don't call build() because we only want to validate the password
+            // and not create a new User object
+
+            // Update password
+            user.setPassword(passwordEncoder.encode(passwordDto.getNewPassword()));
+            User updatedUser = userRepository.save(user);
+
+            return mapUserToDto(updatedUser);
+        } catch (IllegalStateException e) {
+            throw new IllegalArgumentException("Failed to update password: " + e.getMessage());
+        }
     }
 
     @Transactional
     public void deleteUser(Long id) {
-        if (!userRepository.existsById(id)) {
-            throw new ResourceNotFoundException("User not found with id: " + id);
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
+
+        // Check if this is the last admin
+        if (user.getUserType() == User.UserType.ADMIN) {
+            long adminCount = userRepository.findByUserType(User.UserType.ADMIN).size();
+            if (adminCount <= 1) {
+                throw new IllegalStateException("Cannot delete the last admin user. At least one admin must remain.");
+            }
         }
+
+        // Check if user has any matches as referee
+        List<Match> refereeMatches = matchRepository.findByReferee(user);
+        if (!refereeMatches.isEmpty()) {
+            // Check for any active matches
+            boolean hasActiveMatches = refereeMatches.stream()
+                    .anyMatch(match -> match.getStatus() == Match.MatchStatus.SCHEDULED ||
+                            match.getStatus() == Match.MatchStatus.IN_PROGRESS);
+
+            if (hasActiveMatches) {
+                throw new IllegalStateException(
+                        "Cannot delete referee assigned to ongoing or upcoming matches.");
+            }
+        }
+
+        // Check if player has any active tournament registrations
+        if (user.getUserType() == User.UserType.PLAYER) {
+            List<TournamentRegistration> registrations = registrationRepository.findByPlayer(user);
+            boolean hasActiveRegistrations = registrations.stream()
+                    .anyMatch(reg -> reg.getStatus() == TournamentRegistration.RegistrationStatus.APPROVED);
+
+            if (hasActiveRegistrations) {
+                throw new IllegalStateException(
+                        "Cannot delete player registered in ongoing tournaments.");
+            }
+        }
+
         userRepository.deleteById(id);
     }
 

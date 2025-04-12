@@ -20,7 +20,6 @@ import java.util.Collections;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
 public class User implements UserDetails {
 
     @Id

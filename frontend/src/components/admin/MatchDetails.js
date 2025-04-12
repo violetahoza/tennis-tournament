@@ -6,18 +6,19 @@ import {
   Grid, TextField, Card, CardContent, FormControl, InputLabel, Select, MenuItem,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip
 } from '@mui/material';
-import { ArrowBack as ArrowBackIcon, Save as SaveIcon } from '@mui/icons-material';
+import { ArrowBack as ArrowBackIcon, Save as SaveIcon, EmojiEvents as WinnerIcon } from '@mui/icons-material';
 import { API_ENDPOINTS } from '../../config';
+import TournamentRegistrationEditor from './TournamentRegistrationEditor';
 
 const MatchDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
   const isNewMatch = id === 'new' || id === undefined;
-  const preselectedTournamentId = location.state?.tournamentId;
+  const preselectedTournamentId = location.state?.tournamentId || '';
 
   const [match, setMatch] = useState({
-    tournamentId: preselectedTournamentId || '',
+    tournamentId: preselectedTournamentId,
     player1Id: '',
     player2Id: '',
     refereeId: '',
@@ -28,27 +29,34 @@ const MatchDetails = () => {
   });
   
   const [tournaments, setTournaments] = useState([]);
-  const [players, setPlayers] = useState([]);
+  const [allPlayers, setAllPlayers] = useState([]);
+  const [eligiblePlayers, setEligiblePlayers] = useState([]);
   const [referees, setReferees] = useState([]);
   const [scores, setScores] = useState([]);
+  const [registeredPlayers, setRegisteredPlayers] = useState([]);
   
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [matchWinner, setMatchWinner] = useState(null);
+  const [loadedInitialData, setLoadedInitialData] = useState(false);
 
   useEffect(() => {
+    // Load base data first
     Promise.all([
       fetchTournaments(),
       fetchPlayers(),
       fetchReferees()
     ]).then(() => {
+      setLoadedInitialData(true);
       if (!isNewMatch) {
         return Promise.all([
           fetchMatch(),
           fetchScores()
         ]);
       }
+      return Promise.resolve();
     }).then(() => {
       setLoading(false);
     }).catch(error => {
@@ -57,6 +65,21 @@ const MatchDetails = () => {
       setLoading(false);
     });
   }, [id, isNewMatch]);
+
+  // Effect to fetch registered players when tournament changes or after initial data is loaded
+  useEffect(() => {
+    if (match.tournamentId && loadedInitialData) {
+      console.log("Fetching registered players for tournament:", match.tournamentId);
+      fetchRegisteredPlayers(match.tournamentId);
+    }
+  }, [match.tournamentId, loadedInitialData]);
+
+  // Calculate winner when scores change or match is loaded
+  useEffect(() => {
+    if (!isNewMatch && match.status === 'COMPLETED' && scores.length > 0) {
+      calculateMatchWinner();
+    }
+  }, [scores, match]);
 
   const fetchTournaments = async () => {
     try {
@@ -72,7 +95,7 @@ const MatchDetails = () => {
   const fetchPlayers = async () => {
     try {
       const res = await axios.get(API_ENDPOINTS.USERS.GET_BY_TYPE('PLAYER'));
-      setPlayers(res.data);
+      setAllPlayers(res.data);
       return res.data;
     } catch (err) {
       console.error('Error fetching players:', err);
@@ -120,6 +143,57 @@ const MatchDetails = () => {
     }
   };
 
+  const fetchRegisteredPlayers = async (tournamentId) => {
+    console.log("Fetching registered players...");
+    try {
+      const res = await axios.get(API_ENDPOINTS.TOURNAMENT_REGISTRATIONS.GET_BY_TOURNAMENT(tournamentId));
+      console.log("Registration data received:", res.data);
+      
+      // Filter for approved registrations only
+      const approvedRegistrations = res.data.filter(reg => reg.status === 'APPROVED');
+      console.log("Approved registrations:", approvedRegistrations);
+      
+      const approvedPlayerIds = approvedRegistrations.map(reg => reg.playerId);
+      console.log("Approved player IDs:", approvedPlayerIds);
+      
+      // Filter the all players list to get only eligible players
+      const eligiblePlayersList = allPlayers.filter(player => 
+        approvedPlayerIds.includes(player.id)
+      );
+      console.log("Eligible players:", eligiblePlayersList);
+      
+      setRegisteredPlayers(approvedRegistrations);
+      setEligiblePlayers(eligiblePlayersList);
+      
+      // If the current selected players are not in the eligible list, reset them
+      if (!isNewMatch) {
+        // For existing matches, keep the players as they are
+        return;
+      }
+      
+      const updatedMatch = { ...match };
+      let matchUpdated = false;
+      
+      if (updatedMatch.player1Id && !approvedPlayerIds.includes(updatedMatch.player1Id)) {
+        updatedMatch.player1Id = '';
+        matchUpdated = true;
+      }
+      
+      if (updatedMatch.player2Id && !approvedPlayerIds.includes(updatedMatch.player2Id)) {
+        updatedMatch.player2Id = '';
+        matchUpdated = true;
+      }
+      
+      if (matchUpdated) {
+        setMatch(updatedMatch);
+      }
+      
+    } catch (err) {
+      console.error('Error fetching registered players:', err);
+      setEligiblePlayers([]);
+    }
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setMatch({ ...match, [name]: value });
@@ -129,7 +203,7 @@ const MatchDetails = () => {
     e.preventDefault();
     
     // Validation
-    if (match.player1Id === match.player2Id) {
+    if (match.player1Id === match.player2Id && match.player1Id !== '') {
       setError('A player cannot play against themselves');
       return;
     }
@@ -170,6 +244,45 @@ const MatchDetails = () => {
     navigate('/admin/matches');
   };
 
+  const handleRegistrationStatusUpdated = () => {
+    // Refresh the eligible players list
+    fetchRegisteredPlayers(match.tournamentId);
+  };
+
+  const calculateMatchWinner = () => {
+    if (!scores || scores.length === 0) {
+      setMatchWinner(null);
+      return;
+    }
+    
+    let player1Sets = 0;
+    let player2Sets = 0;
+    
+    scores.forEach(score => {
+      if (score.player1Score > score.player2Score) {
+        player1Sets++;
+      } else if (score.player2Score > score.player1Score) {
+        player2Sets++;
+      }
+    });
+    
+    if (player1Sets > player2Sets) {
+      setMatchWinner({
+        name: match.player1Name,
+        score: player1Sets,
+        loserScore: player2Sets
+      });
+    } else if (player2Sets > player1Sets) {
+      setMatchWinner({
+        name: match.player2Name,
+        score: player2Sets,
+        loserScore: player1Sets
+      });
+    } else {
+      setMatchWinner(null);
+    }
+  };
+
   const getStatusColor = (status) => {
     switch(status) {
       case 'SCHEDULED': return 'info';
@@ -186,6 +299,12 @@ const MatchDetails = () => {
     return date.toLocaleString();
   };
 
+  // Get player names for display in scores
+  const getPlayerName = (playerId) => {
+    const player = allPlayers.find(p => p.id === playerId);
+    return player ? `${player.firstName} ${player.lastName}` : 'Unknown Player';
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
@@ -193,6 +312,9 @@ const MatchDetails = () => {
       </Box>
     );
   }
+
+  // Determine which players to show in dropdowns
+  const playersToShow = (isNewMatch && match.tournamentId) ? eligiblePlayers : allPlayers;
 
   return (
     <Paper sx={{ p: 3 }}>
@@ -211,27 +333,57 @@ const MatchDetails = () => {
 
       {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
       {success && <Alert severity="success" sx={{ mb: 3 }}>{success}</Alert>}
+      
+      {/* Display winner when match is completed */}
+      {!isNewMatch && match.status === 'COMPLETED' && matchWinner && (
+        <Card sx={{ mb: 3, backgroundColor: '#f8f9fa' }}>
+          <CardContent sx={{ textAlign: 'center' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 1 }}>
+              <WinnerIcon sx={{ color: 'success.main', mr: 1 }} />
+              <Typography variant="h6" color="success.main">
+                Match Result
+              </Typography>
+            </Box>
+            <Typography variant="h5" gutterBottom>
+              Winner: {matchWinner.name}
+            </Typography>
+            <Typography variant="body1">
+              Final Score: {matchWinner.score} - {matchWinner.loserScore}
+            </Typography>
+          </CardContent>
+        </Card>
+      )}
 
       <form onSubmit={handleSubmit}>
         <Grid container spacing={3}>
           <Grid item xs={12}>
-            <FormControl fullWidth required>
-              <InputLabel id="tournament-label">Tournament</InputLabel>
-              <Select
-                labelId="tournament-label"
-                name="tournamentId"
-                value={match.tournamentId}
-                label="Tournament"
-                onChange={handleChange}
-                disabled={!isNewMatch} // Can't change tournament after creation
-              >
-                {tournaments.map((tournament) => (
-                  <MenuItem key={tournament.id} value={tournament.id}>
-                    {tournament.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <FormControl fullWidth required>
+                <InputLabel id="tournament-label">Tournament</InputLabel>
+                <Select
+                  labelId="tournament-label"
+                  name="tournamentId"
+                  value={match.tournamentId}
+                  label="Tournament"
+                  onChange={handleChange}
+                  disabled={!isNewMatch} // Can't change tournament after creation
+                >
+                  <MenuItem value="">Select Tournament</MenuItem>
+                  {tournaments.map((tournament) => (
+                    <MenuItem key={tournament.id} value={tournament.id}>
+                      {tournament.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              
+              {match.tournamentId && (
+                <TournamentRegistrationEditor 
+                  tournamentId={match.tournamentId}
+                  onStatusUpdated={handleRegistrationStatusUpdated}
+                />
+              )}
+            </Box>
           </Grid>
           
           <Grid item xs={12} sm={6}>
@@ -245,13 +397,19 @@ const MatchDetails = () => {
                 onChange={handleChange}
                 disabled={!isNewMatch && match.status !== 'SCHEDULED'} // Can only change players for scheduled matches
               >
-                {players.map((player) => (
+                <MenuItem value="">Select Player 1</MenuItem>
+                {playersToShow.map((player) => (
                   <MenuItem key={player.id} value={player.id}>
                     {player.firstName} {player.lastName}
                   </MenuItem>
                 ))}
               </Select>
             </FormControl>
+            {isNewMatch && match.tournamentId && eligiblePlayers.length === 0 && (
+              <Typography variant="caption" color="error">
+                No approved players available. Approve player registrations first.
+              </Typography>
+            )}
           </Grid>
           
           <Grid item xs={12} sm={6}>
@@ -265,8 +423,13 @@ const MatchDetails = () => {
                 onChange={handleChange}
                 disabled={!isNewMatch && match.status !== 'SCHEDULED'} // Can only change players for scheduled matches
               >
-                {players.map((player) => (
-                  <MenuItem key={player.id} value={player.id}>
+                <MenuItem value="">Select Player 2</MenuItem>
+                {playersToShow.map((player) => (
+                  <MenuItem 
+                    key={player.id} 
+                    value={player.id}
+                    disabled={player.id === match.player1Id} // Prevent selecting same player
+                  >
                     {player.firstName} {player.lastName}
                   </MenuItem>
                 ))}
@@ -285,6 +448,7 @@ const MatchDetails = () => {
                 onChange={handleChange}
                 disabled={!isNewMatch && match.status !== 'SCHEDULED'} // Can only change referee for scheduled matches
               >
+                <MenuItem value="">Select Referee</MenuItem>
                 {referees.map((referee) => (
                   <MenuItem key={referee.id} value={referee.id}>
                     {referee.firstName} {referee.lastName}

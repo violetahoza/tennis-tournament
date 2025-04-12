@@ -66,5 +66,15 @@ export const API_ENDPOINTS = {
   REPORTS: {
     EXPORT_MATCHES_CSV: `${API_BASE_URL}/api/reports/matches/csv`,
     EXPORT_MATCHES_TXT: `${API_BASE_URL}/api/reports/matches/txt`,
-  }
+  },
+
+  NOTIFICATIONS: {
+    GET_ALL: `${API_BASE_URL}/api/notifications`,
+    MARK_AS_READ: (id) => `${API_BASE_URL}/api/notifications/${id}/read`,
+    MARK_ALL_AS_READ: `${API_BASE_URL}/api/notifications/read-all`,
+    //TEST: `${API_BASE_URL}/api/notifications/test` // For testing only
+  },
+  
+  WEBSOCKET: `${API_BASE_URL}/ws`
+
 };

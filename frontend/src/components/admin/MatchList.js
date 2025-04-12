@@ -88,50 +88,53 @@ const MatchList = () => {
     }
   };
 
+  const convertMatchesToCsv = (matches) => {
+    const headers = ['Match ID', 'Tournament', 'Round', 'Player 1', 'Player 2', 'Referee', 'Court', 'Scheduled Time', 'Status'];
+    const rows = matches.map(match => [
+      match.id,
+      match.tournamentName || 'N/A',
+      match.round || 'N/A',
+      match.player1Name || 'N/A',
+      match.player2Name || 'N/A',
+      match.refereeName || 'N/A',
+      match.courtNumber || 'N/A',
+      formatDateTime(match.scheduledTime),
+      match.status || 'N/A'
+    ]);
+    
+    return [headers, ...rows].map(row => 
+      row.map(field => `"${field.toString().replace(/"/g, '""')}"`).join(',')
+    ).join('\n');
+  };
+
+  const convertMatchesToTxt = (matches) => {
+    let content = 'TENNIS TOURNAMENT MATCHES REPORT\n';
+    content += '=================================\n\n';
+    
+    matches.forEach(match => {
+      content += `Match ID: ${match.id}\n`;
+      content += `Tournament: ${match.tournamentName || 'N/A'}\n`;
+      content += `Round: ${match.round || 'N/A'}\n`;
+      content += `Players: ${match.player1Name || 'N/A'} vs ${match.player2Name || 'N/A'}\n`;
+      content += `Referee: ${match.refereeName || 'N/A'}\n`;
+      content += `Court: ${match.courtNumber || 'N/A'}\n`;
+      content += `Scheduled: ${formatDateTime(match.scheduledTime)}\n`;
+      content += `Status: ${match.status || 'N/A'}\n\n`;
+    });
+    
+    return content;
+  };
+
   const handleExportCsv = () => {
     try {
-      // Get the selected tournament filter for exporting
-      const tournamentParam = tournamentFilter ? `?tournamentId=${tournamentFilter}` : '';
-      const url = `${API_ENDPOINTS.REPORTS.EXPORT_MATCHES_CSV}${tournamentParam}`;
-      
-      // Set authorization header for the request
-      const token = localStorage.getItem('token');
-      if (token) {
-        // Create a hidden anchor element to download the file
-        const a = document.createElement('a');
-        a.style.display = 'none';
-        document.body.appendChild(a);
-        
-        // Use XMLHttpRequest for binary data download with auth headers
-        const xhr = new XMLHttpRequest();
-        xhr.open('GET', url, true);
-        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-        xhr.responseType = 'blob';
-        
-        xhr.onload = function() {
-          if (this.status === 200) {
-            const blob = new Blob([this.response], { type: 'text/csv' });
-            const downloadUrl = URL.createObjectURL(blob);
-            a.href = downloadUrl;
-            a.download = 'matches.csv';
-            a.click();
-            URL.revokeObjectURL(downloadUrl);
-          } else {
-            console.error('Error exporting CSV:', this.statusText);
-            setError('Error exporting data to CSV. Please try again.');
-          }
-        };
-        
-        xhr.onerror = function() {
-          console.error('Error exporting CSV: Network error');
-          setError('Network error when exporting data to CSV. Please try again.');
-        };
-        
-        xhr.send();
-        setTimeout(() => document.body.removeChild(a), 100);
-      } else {
-        setError('You need to be logged in to export data.');
-      }
+      const csvContent = convertMatchesToCsv(filteredMatches);
+      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'matches.csv';
+      a.click();
+      URL.revokeObjectURL(url);
     } catch (err) {
       console.error('Error exporting CSV:', err);
       setError('Error exporting data to CSV. Please try again.');
@@ -140,48 +143,14 @@ const MatchList = () => {
 
   const handleExportTxt = () => {
     try {
-      // Get the selected tournament filter for exporting
-      const tournamentParam = tournamentFilter ? `?tournamentId=${tournamentFilter}` : '';
-      const url = `${API_ENDPOINTS.REPORTS.EXPORT_MATCHES_TXT}${tournamentParam}`;
-      
-      // Set authorization header for the request
-      const token = localStorage.getItem('token');
-      if (token) {
-        // Create a hidden anchor element to download the file
-        const a = document.createElement('a');
-        a.style.display = 'none';
-        document.body.appendChild(a);
-        
-        // Use XMLHttpRequest for binary data download with auth headers
-        const xhr = new XMLHttpRequest();
-        xhr.open('GET', url, true);
-        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-        xhr.responseType = 'blob';
-        
-        xhr.onload = function() {
-          if (this.status === 200) {
-            const blob = new Blob([this.response], { type: 'text/plain' });
-            const downloadUrl = URL.createObjectURL(blob);
-            a.href = downloadUrl;
-            a.download = 'matches.txt';
-            a.click();
-            URL.revokeObjectURL(downloadUrl);
-          } else {
-            console.error('Error exporting TXT:', this.statusText);
-            setError('Error exporting data to TXT. Please try again.');
-          }
-        };
-        
-        xhr.onerror = function() {
-          console.error('Error exporting TXT: Network error');
-          setError('Network error when exporting data to TXT. Please try again.');
-        };
-        
-        xhr.send();
-        setTimeout(() => document.body.removeChild(a), 100);
-      } else {
-        setError('You need to be logged in to export data.');
-      }
+      const txtContent = convertMatchesToTxt(filteredMatches);
+      const blob = new Blob([txtContent], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'matches.txt';
+      a.click();
+      URL.revokeObjectURL(url);
     } catch (err) {
       console.error('Error exporting TXT:', err);
       setError('Error exporting data to TXT. Please try again.');

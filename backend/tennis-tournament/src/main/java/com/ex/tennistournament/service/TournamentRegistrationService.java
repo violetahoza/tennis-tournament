@@ -67,15 +67,16 @@ public class TournamentRegistrationService {
 
         // Check if tournament is full
         long registeredCount = registrationRepository.countApprovedRegistrationsByTournamentId(tournamentId);
-        if (registeredCount >= tournament.getMaxParticipants()) {
-            throw new IllegalArgumentException("Tournament has reached maximum participants");
-        }
+        TournamentRegistration.RegistrationStatus initialStatus =
+                registeredCount >= tournament.getMaxParticipants()
+                        ? TournamentRegistration.RegistrationStatus.WAITLISTED
+                        : TournamentRegistration.RegistrationStatus.PENDING;
 
         TournamentRegistration registration = TournamentRegistration.builder()
                 .player(player)
                 .tournament(tournament)
                 .registrationDate(LocalDateTime.now())
-                .status(TournamentRegistration.RegistrationStatus.PENDING)
+                .status(initialStatus)
                 .build();
 
         TournamentRegistration savedRegistration = registrationRepository.save(registration);
@@ -88,28 +89,61 @@ public class TournamentRegistrationService {
                 .orElseThrow(() -> new ResourceNotFoundException("Registration not found with id: " + registrationId));
 
         // If approving, check if tournament is full
-        if (status == TournamentRegistration.RegistrationStatus.APPROVED &&
-                registration.getStatus() != TournamentRegistration.RegistrationStatus.APPROVED) {
-
+        if (status == TournamentRegistration.RegistrationStatus.APPROVED) {
             long registeredCount = registrationRepository.countApprovedRegistrationsByTournamentId(
                     registration.getTournament().getId());
 
             if (registeredCount >= registration.getTournament().getMaxParticipants()) {
-                throw new IllegalArgumentException("Tournament has reached maximum participants");
+                // Automatically set to WAITLISTED if tournament is full
+                status = TournamentRegistration.RegistrationStatus.WAITLISTED;
             }
         }
 
         registration.setStatus(status);
         TournamentRegistration updatedRegistration = registrationRepository.save(registration);
+
+        // If this registration was approved, check if we can promote any waitlisted registrations
+        if (status == TournamentRegistration.RegistrationStatus.APPROVED) {
+            promoteWaitlistedRegistrations(registration.getTournament().getId());
+        }
+
         return mapToDto(updatedRegistration);
+    }
+
+    protected void promoteWaitlistedRegistrations(Long tournamentId) {
+        Tournament tournament = tournamentRepository.findById(tournamentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Tournament not found with id: " + tournamentId));
+
+        long approvedCount = registrationRepository.countApprovedRegistrationsByTournamentId(tournamentId);
+        int availableSlots = tournament.getMaxParticipants() - (int) approvedCount;
+
+        if (availableSlots > 0) {
+            // Get the oldest waitlisted registrations (up to available slots)
+            List<TournamentRegistration> waitlisted = registrationRepository
+                    .findTopNByTournamentIdAndStatusOrderByRegistrationDateAsc(
+                            tournamentId,
+                            TournamentRegistration.RegistrationStatus.WAITLISTED,
+                            availableSlots);
+
+            // Approve these registrations
+            waitlisted.forEach(reg -> {
+                reg.setStatus(TournamentRegistration.RegistrationStatus.APPROVED);
+                registrationRepository.save(reg);
+            });
+        }
     }
 
     @Transactional
     public void cancelRegistration(Long registrationId) {
-        if (!registrationRepository.existsById(registrationId)) {
-            throw new ResourceNotFoundException("Registration not found with id: " + registrationId);
+        TournamentRegistration registration = registrationRepository.findById(registrationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Registration not found with id: " + registrationId));
+
+        registrationRepository.delete(registration);
+
+        // If this was an approved registration, we might have space for waitlisted players
+        if (registration.getStatus() == TournamentRegistration.RegistrationStatus.APPROVED) {
+            promoteWaitlistedRegistrations(registration.getTournament().getId());
         }
-        registrationRepository.deleteById(registrationId);
     }
 
     private TournamentRegistrationDto mapToDto(TournamentRegistration registration) {

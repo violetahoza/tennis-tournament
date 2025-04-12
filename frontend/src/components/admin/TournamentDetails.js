@@ -3,9 +3,17 @@ import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
   Paper, Button, TextField, Typography, Box, Alert, CircularProgress,
-  Grid, Card, CardContent, Tab, Tabs, List, ListItem, ListItemText, Chip, Divider
+  Grid, Card, CardContent, Tab, Tabs, List, ListItem, ListItemText, 
+  Chip, Divider, Dialog, DialogTitle, DialogContent, DialogActions,
+  MenuItem, Select, FormControl, InputLabel
 } from '@mui/material';
-import { ArrowBack as ArrowBackIcon, Save as SaveIcon } from '@mui/icons-material';
+import { 
+  ArrowBack as ArrowBackIcon, 
+  Save as SaveIcon, 
+  Add as AddIcon,
+  CheckCircle as ApproveIcon,
+  Cancel as RejectIcon 
+} from '@mui/icons-material';
 import { API_ENDPOINTS } from '../../config';
 
 const TournamentDetails = () => {
@@ -32,6 +40,12 @@ const TournamentDetails = () => {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [validationErrors, setValidationErrors] = useState({});
+  
+  // For registration status management
+  const [registrationDialogOpen, setRegistrationDialogOpen] = useState(false);
+  const [selectedRegistration, setSelectedRegistration] = useState(null);
+  const [newStatus, setNewStatus] = useState('');
+  const [statusSaving, setStatusSaving] = useState(false);
 
   useEffect(() => {
     if (!isNewTournament) {
@@ -285,6 +299,7 @@ const TournamentDetails = () => {
       case 'PENDING': return 'warning';
       case 'APPROVED': return 'success';
       case 'REJECTED': return 'error';
+      case 'WAITLISTED': return 'info';
       default: return 'default';
     }
   };
@@ -299,10 +314,33 @@ const TournamentDetails = () => {
     }
   };
 
-  const handleUpdateRegistrationStatus = async (registrationId, newStatus) => {
+  // Open dialog to update registration status
+  const handleOpenStatusDialog = (registration) => {
+    setSelectedRegistration(registration);
+    setNewStatus(registration.status);
+    setRegistrationDialogOpen(true);
+  };
+
+  // Close registration status dialog
+  const handleCloseStatusDialog = () => {
+    setRegistrationDialogOpen(false);
+    setSelectedRegistration(null);
+    setNewStatus('');
+  };
+
+  // Handle status change in dialog
+  const handleStatusChange = (e) => {
+    setNewStatus(e.target.value);
+  };
+
+  // Submit registration status update
+  const handleUpdateRegistrationStatus = async () => {
+    if (!selectedRegistration || !newStatus) return;
+    
+    setStatusSaving(true);
     try {
       await axios.put(
-        API_ENDPOINTS.TOURNAMENT_REGISTRATIONS.UPDATE_STATUS(registrationId),
+        API_ENDPOINTS.TOURNAMENT_REGISTRATIONS.UPDATE_STATUS(selectedRegistration.id),
         {},
         { params: { status: newStatus } }
       );
@@ -312,10 +350,57 @@ const TournamentDetails = () => {
       setRegistrations(registrationsRes.data);
       
       setSuccess(`Registration status updated to ${newStatus}`);
+      handleCloseStatusDialog();
     } catch (error) {
-      setError('Error updating registration status');
+      setError('Error updating registration status: ' + (error.response?.data?.message || error.message));
+      console.error(error);
+    } finally {
+      setStatusSaving(false);
+    }
+  };
+
+  // Quick approve/reject functions
+  const handleQuickApprove = async (registration) => {
+    try {
+      await axios.put(
+        API_ENDPOINTS.TOURNAMENT_REGISTRATIONS.UPDATE_STATUS(registration.id),
+        {},
+        { params: { status: 'APPROVED' } }
+      );
+      
+      // Refresh registrations
+      const registrationsRes = await axios.get(API_ENDPOINTS.TOURNAMENT_REGISTRATIONS.GET_BY_TOURNAMENT(id));
+      setRegistrations(registrationsRes.data);
+      
+      setSuccess(`Registration for ${registration.playerName} approved!`);
+    } catch (error) {
+      setError('Error approving registration: ' + (error.response?.data?.message || error.message));
       console.error(error);
     }
+  };
+
+  const handleQuickReject = async (registration) => {
+    try {
+      await axios.put(
+        API_ENDPOINTS.TOURNAMENT_REGISTRATIONS.UPDATE_STATUS(registration.id),
+        {},
+        { params: { status: 'REJECTED' } }
+      );
+      
+      // Refresh registrations
+      const registrationsRes = await axios.get(API_ENDPOINTS.TOURNAMENT_REGISTRATIONS.GET_BY_TOURNAMENT(id));
+      setRegistrations(registrationsRes.data);
+      
+      setSuccess(`Registration for ${registration.playerName} rejected!`);
+    } catch (error) {
+      setError('Error rejecting registration: ' + (error.response?.data?.message || error.message));
+      console.error(error);
+    }
+  };
+
+  // Navigate to add new match with pre-selected tournament
+  const handleAddMatch = () => {
+    navigate('/admin/matches/new', { state: { tournamentId: id } });
   };
 
   if (loading) {
@@ -477,7 +562,9 @@ const TournamentDetails = () => {
       {!isNewTournament && tabValue === 1 && (
         <Card>
           <CardContent>
-            <Typography variant="h6" gutterBottom>Player Registrations</Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h6">Player Registrations</Typography>
+            </Box>
             
             {registrations.length === 0 ? (
               <Typography variant="body1" color="textSecondary">
@@ -487,38 +574,62 @@ const TournamentDetails = () => {
               <List>
                 {registrations.map((registration) => (
                   <React.Fragment key={registration.id}>
-                    <ListItem>
-                      <ListItemText
-                        primary={registration.playerName}
-                        secondary={`Registration Date: ${new Date(registration.registrationDate).toLocaleDateString()}`}
-                      />
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <Chip 
-                          label={registration.status} 
-                          color={getStatusColor(registration.status)}
-                          size="small"
-                        />
-                        {registration.status === 'PENDING' && (
-                          <>
-                            <Button 
-                              size="small" 
-                              color="success"
+                    <ListItem sx={{ 
+                      borderLeft: `4px solid ${getStatusColor(registration.status)}`,
+                      backgroundColor: registration.status === 'PENDING' ? '#fff8e1' : 'transparent',
+                      '&:hover': { backgroundColor: '#f5f5f5' }
+                    }}>
+                      <Grid container alignItems="center">
+                        <Grid item xs={12} sm={4}>
+                          <ListItemText
+                            primary={registration.playerName}
+                            secondary={`Registration Date: ${new Date(registration.registrationDate).toLocaleDateString()}`}
+                          />
+                        </Grid>
+                        <Grid item xs={12} sm={3}>
+                          <Chip 
+                            label={registration.status} 
+                            color={getStatusColor(registration.status)}
+                            size="small"
+                            onClick={() => handleOpenStatusDialog(registration)}
+                          />
+                        </Grid>
+                        <Grid item xs={12} sm={5}>
+                          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+                            {registration.status === 'PENDING' && (
+                              <>
+                                <Button 
+                                  size="small" 
+                                  color="success"
+                                  variant="outlined"
+                                  startIcon={<ApproveIcon />}
+                                  onClick={() => handleQuickApprove(registration)}
+                                  sx={{ mr: 1 }}
+                                >
+                                  Approve
+                                </Button>
+                                <Button 
+                                  size="small" 
+                                  color="error"
+                                  variant="outlined"
+                                  startIcon={<RejectIcon />}
+                                  onClick={() => handleQuickReject(registration)}
+                                  sx={{ mr: 1 }}
+                                >
+                                  Reject
+                                </Button>
+                              </>
+                            )}
+                            <Button
+                              size="small"
                               variant="outlined"
-                              onClick={() => handleUpdateRegistrationStatus(registration.id, 'APPROVED')}
+                              onClick={() => handleOpenStatusDialog(registration)}
                             >
-                              Approve
+                              Change Status
                             </Button>
-                            <Button 
-                              size="small" 
-                              color="error"
-                              variant="outlined"
-                              onClick={() => handleUpdateRegistrationStatus(registration.id, 'REJECTED')}
-                            >
-                              Reject
-                            </Button>
-                          </>
-                        )}
-                      </Box>
+                          </Box>
+                        </Grid>
+                      </Grid>
                     </ListItem>
                     <Divider />
                   </React.Fragment>
@@ -532,12 +643,13 @@ const TournamentDetails = () => {
       {!isNewTournament && tabValue === 2 && (
         <Card>
           <CardContent>
-            <Typography variant="h6" gutterBottom>Tournament Matches</Typography>
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+              <Typography variant="h6">Tournament Matches</Typography>
               <Button 
                 variant="contained" 
                 color="primary"
-                onClick={() => navigate('/admin/matches/new', { state: { tournamentId: id } })}
+                startIcon={<AddIcon />}
+                onClick={handleAddMatch}
               >
                 Add Match
               </Button>
@@ -554,16 +666,33 @@ const TournamentDetails = () => {
                     <ListItem
                       button
                       onClick={() => navigate(`/admin/matches/${match.id}`)}
+                      sx={{ 
+                        borderLeft: `4px solid ${getMatchStatusColor(match.status)}`,
+                        '&:hover': { backgroundColor: '#f5f5f5' }
+                      }}
                     >
-                      <ListItemText
-                        primary={`${match.player1Name} vs ${match.player2Name}`}
-                        secondary={`Referee: ${match.refereeName} - Court: ${match.courtNumber} - ${new Date(match.scheduledTime).toLocaleString()}`}
-                      />
-                      <Chip 
-                        label={match.status} 
-                        color={getMatchStatusColor(match.status)}
-                        size="small"
-                      />
+                      <Grid container alignItems="center">
+                        <Grid item xs={12} sm={5}>
+                          <ListItemText
+                            primary={`${match.player1Name} vs ${match.player2Name}`}
+                            secondary={`Referee: ${match.refereeName}`}
+                          />
+                        </Grid>
+                        <Grid item xs={12} sm={4}>
+                          <ListItemText 
+                            secondary={`Court: ${match.courtNumber} - ${new Date(match.scheduledTime).toLocaleString()}`}
+                          />
+                        </Grid>
+                        <Grid item xs={12} sm={3}>
+                          <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                            <Chip 
+                              label={match.status} 
+                              color={getMatchStatusColor(match.status)}
+                              size="small"
+                            />
+                          </Box>
+                        </Grid>
+                      </Grid>
                     </ListItem>
                     <Divider />
                   </React.Fragment>
@@ -573,6 +702,58 @@ const TournamentDetails = () => {
           </CardContent>
         </Card>
       )}
+
+      {/* Registration Status Update Dialog */}
+      <Dialog 
+        open={registrationDialogOpen} 
+        onClose={handleCloseStatusDialog}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Update Registration Status</DialogTitle>
+        <DialogContent>
+          {selectedRegistration && (
+            <>
+              <Typography variant="subtitle1" gutterBottom>
+                Player: {selectedRegistration.playerName}
+              </Typography>
+              <Typography variant="body2" gutterBottom>
+                Current Status: <Chip 
+                  label={selectedRegistration.status} 
+                  color={getStatusColor(selectedRegistration.status)}
+                  size="small"
+                />
+              </Typography>
+              <Box sx={{ mt: 2 }}>
+                <FormControl fullWidth>
+                  <InputLabel>New Status</InputLabel>
+                  <Select
+                    value={newStatus}
+                    label="New Status"
+                    onChange={handleStatusChange}
+                  >
+                    <MenuItem value="PENDING">Pending</MenuItem>
+                    <MenuItem value="APPROVED">Approved</MenuItem>
+                    <MenuItem value="REJECTED">Rejected</MenuItem>
+                    <MenuItem value="WAITLISTED">Waitlisted</MenuItem>
+                  </Select>
+                </FormControl>
+              </Box>
+            </>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseStatusDialog}>Cancel</Button>
+          <Button 
+            onClick={handleUpdateRegistrationStatus}
+            variant="contained" 
+            color="primary"
+            disabled={statusSaving}
+          >
+            {statusSaving ? 'Updating...' : 'Update Status'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Paper>
   );
 };

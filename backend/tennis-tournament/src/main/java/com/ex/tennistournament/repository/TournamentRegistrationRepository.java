@@ -18,4 +18,10 @@ public interface TournamentRegistrationRepository extends JpaRepository<Tourname
 
     @Query("SELECT COUNT(tr) FROM TournamentRegistration tr WHERE tr.tournament.id = ?1 AND tr.status = 'APPROVED'")
     long countApprovedRegistrationsByTournamentId(Long tournamentId);
+
+    @Query("SELECT tr FROM TournamentRegistration tr WHERE tr.tournament.id = ?1 AND tr.status = ?2 ORDER BY tr.registrationDate ASC")
+    List<TournamentRegistration> findTopNByTournamentIdAndStatusOrderByRegistrationDateAsc(
+            Long tournamentId,
+            TournamentRegistration.RegistrationStatus status,
+            int limit);
 }

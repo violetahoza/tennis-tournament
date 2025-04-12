@@ -141,19 +141,8 @@ const MatchScoring = () => {
       }
       
       // Determine if there's a clear winner
-      let player1Sets = 0;
-      let player2Sets = 0;
-      
-      scores.forEach(score => {
-        if (score.player1Score > score.player2Score) {
-          player1Sets++;
-        } else if (score.player2Score > score.player1Score) {
-          player2Sets++;
-        }
-      });
-      
-      // Check if we have a winner
-      if (player1Sets === player2Sets) {
+      const winnerInfo = calculateMatchWinner(scores, match);
+      if (winnerInfo.isTie) {
         setError('Cannot complete the match with tied scores. There must be a winner.');
         setOpenCompleteDialog(false);
         return;
@@ -171,7 +160,7 @@ const MatchScoring = () => {
         status: 'COMPLETED'
       }));
       
-      setSuccess('Match completed successfully!');
+      setSuccess(`Match completed successfully! Winner: ${winnerInfo.winnerName}`);
       setOpenCompleteDialog(false);
     } catch (err) {
       setError(err.response?.data?.message || 'Error completing match. Please try again.');
@@ -284,6 +273,49 @@ const MatchScoring = () => {
     }
   };
   
+  // Calculate match winner based on sets
+  const calculateMatchWinner = (scores, match) => {
+    if (!scores || scores.length === 0 || !match) {
+      return { winnerName: "No scores recorded yet", isTie: false };
+    }
+    
+    let player1Sets = 0;
+    let player2Sets = 0;
+    
+    scores.forEach(score => {
+      if (score.player1Score > score.player2Score) {
+        player1Sets++;
+      } else if (score.player2Score > score.player1Score) {
+        player2Sets++;
+      }
+    });
+    
+    if (player1Sets > player2Sets) {
+      return { 
+        winnerName: match.player1Name, 
+        winnerScore: player1Sets,
+        loserName: match.player2Name,
+        loserScore: player2Sets,
+        isTie: false 
+      };
+    } else if (player2Sets > player1Sets) {
+      return { 
+        winnerName: match.player2Name,
+        winnerScore: player2Sets,
+        loserName: match.player1Name,
+        loserScore: player1Sets,
+        isTie: false 
+      };
+    } else {
+      return { 
+        winnerName: "Tie", 
+        winnerScore: player1Sets,
+        loserScore: player2Sets,
+        isTie: true 
+      };
+    }
+  };
+  
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
@@ -299,6 +331,9 @@ const MatchScoring = () => {
       </Alert>
     );
   }
+
+  // Calculate winner information
+  const winnerInfo = calculateMatchWinner(scores, match);
 
   return (
     <Paper sx={{ p: 3 }}>
@@ -354,6 +389,25 @@ const MatchScoring = () => {
           </Grid>
         </CardContent>
       </Card>
+
+      {match.status === 'COMPLETED' && (
+        <Card sx={{ mb: 3, backgroundColor: '#f8f9fa' }}>
+          <CardContent sx={{ textAlign: 'center' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 1 }}>
+              <WinnerIcon sx={{ color: 'success.main', mr: 1 }} />
+              <Typography variant="h6" color="success.main">
+                Match Result
+              </Typography>
+            </Box>
+            <Typography variant="h5" gutterBottom>
+              Winner: {winnerInfo.winnerName}
+            </Typography>
+            <Typography variant="body1">
+              Final Score: {winnerInfo.winnerScore} - {winnerInfo.loserScore}
+            </Typography>
+          </CardContent>
+        </Card>
+      )}
 
       <Card sx={{ mb: 3 }}>
         <CardContent>
@@ -488,6 +542,15 @@ const MatchScoring = () => {
             Are you sure you want to mark this match as completed?
             This action will finalize the match result and cannot be undone.
           </DialogContentText>
+          <Box sx={{ mt: 2, p: 2, backgroundColor: '#f5f5f5', borderRadius: 1 }}>
+            <Typography variant="subtitle1">Match Result:</Typography>
+            <Typography variant="body1">
+              Winner: {winnerInfo.winnerName}
+            </Typography>
+            <Typography variant="body1">
+              Score: {winnerInfo.winnerScore} - {winnerInfo.loserScore}
+            </Typography>
+          </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseCompleteDialog}>Cancel</Button>

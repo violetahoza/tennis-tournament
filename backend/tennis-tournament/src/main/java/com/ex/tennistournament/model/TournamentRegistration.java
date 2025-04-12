@@ -33,10 +33,10 @@ public class TournamentRegistration {
     private LocalDateTime registrationDate;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, length = 20)
     private RegistrationStatus status;
 
     public enum RegistrationStatus {
-        PENDING, APPROVED, REJECTED
+        PENDING, APPROVED, REJECTED, WAITLISTED
     }
 }

@@ -1,18 +1,23 @@
 package com.ex.tennistournament.service;
 
 import com.ex.tennistournament.dto.MatchScoreDto;
+import com.ex.tennistournament.dto.NotificationDto;
 import com.ex.tennistournament.exception.ResourceNotFoundException;
 import com.ex.tennistournament.model.Match;
 import com.ex.tennistournament.model.MatchScore;
 import com.ex.tennistournament.model.User;
+import com.ex.tennistournament.observer.MatchScoreLogger;
+import com.ex.tennistournament.observer.MatchScoreSubject;
 import com.ex.tennistournament.repository.MatchRepository;
 import com.ex.tennistournament.repository.MatchScoreRepository;
+import com.ex.tennistournament.websocket.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -22,6 +27,9 @@ public class MatchScoreService {
 
     private final MatchScoreRepository matchScoreRepository;
     private final MatchRepository matchRepository;
+    private final MatchScoreSubject matchScoreSubject;
+    private final MatchScoreLogger matchScoreLogger;
+    private final NotificationService notificationService;
 
     public List<MatchScoreDto> getScoresByMatch(Long matchId) {
         Match match = matchRepository.findById(matchId)
@@ -64,6 +72,9 @@ public class MatchScoreService {
                     throw new IllegalArgumentException("Score for set " + scoreDto.getSetNumber() + " already exists");
                 });
 
+        // Validate set scores based on tennis rules
+        validateTennisSetScore(scoreDto.getPlayer1Score(), scoreDto.getPlayer2Score());
+
         // Create new score
         MatchScore score = MatchScore.builder()
                 .match(match)
@@ -79,6 +90,14 @@ public class MatchScoreService {
         }
 
         MatchScore savedScore = matchScoreRepository.save(score);
+
+        // Notify observers about the new score
+        matchScoreSubject.scoreAdded(match, savedScore);
+
+        // Send notifications to players and admin
+        sendScoreNotifications(match, savedScore, "Score added for set " + savedScore.getSetNumber() +
+                ": " + savedScore.getPlayer1Score() + "-" + savedScore.getPlayer2Score());
+
         return mapToDto(savedScore);
     }
 
@@ -102,10 +121,21 @@ public class MatchScoreService {
             throw new IllegalStateException("Only the assigned referee can update match scores");
         }
 
+        // Validate set scores based on tennis rules
+        validateTennisSetScore(scoreDto.getPlayer1Score(), scoreDto.getPlayer2Score());
+
         score.setPlayer1Score(scoreDto.getPlayer1Score());
         score.setPlayer2Score(scoreDto.getPlayer2Score());
 
         MatchScore updatedScore = matchScoreRepository.save(score);
+
+        // Notify observers about the updated score
+        matchScoreSubject.scoreUpdated(match, updatedScore);
+
+        // Send notifications to players and admin
+        sendScoreNotifications(match, updatedScore, "Score updated for set " + updatedScore.getSetNumber() +
+                ": " + updatedScore.getPlayer1Score() + "-" + updatedScore.getPlayer2Score());
+
         return mapToDto(updatedScore);
     }
 
@@ -115,6 +145,7 @@ public class MatchScoreService {
                 .orElseThrow(() -> new ResourceNotFoundException("Score not found with id: " + id));
 
         Match match = score.getMatch();
+        int setNumber = score.getSetNumber();
 
         // Verify match is not completed or cancelled
         if (match.getStatus() == Match.MatchStatus.COMPLETED || match.getStatus() == Match.MatchStatus.CANCELLED) {
@@ -130,6 +161,12 @@ public class MatchScoreService {
         }
 
         matchScoreRepository.deleteById(id);
+
+        // Notify observers about the deleted score
+        matchScoreSubject.scoreDeleted(match, setNumber);
+
+        // Send notifications to players and admin
+        sendScoreNotifications(match, null, "Score deleted for set " + setNumber);
     }
 
     @Transactional
@@ -151,9 +188,86 @@ public class MatchScoreService {
             throw new IllegalStateException("Cannot complete match without any scores");
         }
 
+        // Determine if there's a clear winner
+        int player1Sets = 0;
+        int player2Sets = 0;
+
+        for (MatchScore score : scores) {
+            if (score.getPlayer1Score() > score.getPlayer2Score()) {
+                player1Sets++;
+            } else if (score.getPlayer2Score() > score.getPlayer1Score()) {
+                player2Sets++;
+            }
+        }
+
+        // Check if we have a winner
+        if (player1Sets == player2Sets) {
+            throw new IllegalStateException("Cannot complete the match with tied scores. There must be a winner.");
+        }
+
         // Update match status to COMPLETED
         match.setStatus(Match.MatchStatus.COMPLETED);
         matchRepository.save(match);
+
+        // Notify observers about the completed match
+        matchScoreSubject.matchCompleted(match);
+
+        // Determine winner name
+        String winnerName = player1Sets > player2Sets ?
+                match.getPlayer1().getFirstName() + " " + match.getPlayer1().getLastName() :
+                match.getPlayer2().getFirstName() + " " + match.getPlayer2().getLastName();
+
+        // Send notifications to players and admin
+        sendMatchCompletionNotifications(match, winnerName);
+    }
+
+    /**
+     * Send notifications to all relevant users (players, referee, admin) about score updates
+     */
+    private void sendScoreNotifications(Match match, MatchScore score, String message) {
+        // Send to player 1
+        sendNotification(match.getPlayer1().getId(), "MATCH_SCORE", message);
+
+        // Send to player 2
+        sendNotification(match.getPlayer2().getId(), "MATCH_SCORE", message);
+
+        // Also notify admins (for this example, we'll use user ID 1 for admin, but in a real system you'd query for admin users)
+        // In a real implementation, you would find all admin users and send them notifications
+        sendNotification(1L, "MATCH_SCORE", "Match " + match.getId() + " " + message);
+    }
+
+    /**
+     * Send match completion notifications
+     */
+    private void sendMatchCompletionNotifications(Match match, String winnerName) {
+        String message = "Match completed! Winner: " + winnerName;
+
+        // Send to player 1
+        sendNotification(match.getPlayer1().getId(), "MATCH_COMPLETED", message);
+
+        // Send to player 2
+        sendNotification(match.getPlayer2().getId(), "MATCH_COMPLETED", message);
+
+        // Send to referee
+        sendNotification(match.getReferee().getId(), "MATCH_COMPLETED", message);
+
+        // Also notify admins
+        sendNotification(1L, "MATCH_COMPLETED", "Match " + match.getId() + " completed. Winner: " + winnerName);
+    }
+
+    /**
+     * Send a notification to a specific user
+     */
+    private void sendNotification(Long userId, String type, String message) {
+        NotificationDto notification = NotificationDto.builder()
+                .userId(userId)
+                .type(type)
+                .message(message)
+                .timestamp(LocalDateTime.now())
+                .read(false)
+                .build();
+
+        notificationService.sendNotification(notification);
     }
 
     private MatchScoreDto mapToDto(MatchScore score) {
@@ -164,5 +278,51 @@ public class MatchScoreService {
                 .player1Score(score.getPlayer1Score())
                 .player2Score(score.getPlayer2Score())
                 .build();
+    }
+
+    /**
+     * Validates that a tennis set score follows the rules of tennis.
+     *
+     * @param player1Score Score of player 1
+     * @param player2Score Score of player 2
+     * @throws IllegalArgumentException if the score is invalid according to tennis rules
+     */
+    private void validateTennisSetScore(int player1Score, int player2Score) {
+        if (player1Score < 0 || player2Score < 0) {
+            throw new IllegalArgumentException("Games cannot be negative");
+        }
+
+        // A set cannot end in a tie in tennis
+        if (player1Score == player2Score) {
+            throw new IllegalArgumentException("Sets cannot end in a tie in tennis");
+        }
+
+        if (player1Score > 7 || player2Score > 7) {
+            throw new IllegalArgumentException("Maximum game score in a set is 7");
+        }
+
+        // Case 1: One player has 6 games
+        if ((player1Score == 6 && player2Score < 5) ||
+                (player2Score == 6 && player1Score < 5)) {
+            // This is a valid score (6-0, 6-1, 6-2, 6-3, 6-4)
+            return;
+        }
+
+        // Case 2: 7-5 score
+        if ((player1Score == 7 && player2Score == 5) ||
+                (player2Score == 7 && player1Score == 5)) {
+            // This is a valid score (7-5)
+            return;
+        }
+
+        // Case 3: 7-6 score (tiebreak)
+        if ((player1Score == 7 && player2Score == 6) ||
+                (player2Score == 7 && player1Score == 6)) {
+            // This is a valid score (7-6)
+            return;
+        }
+
+        // If we reach here, the score is invalid
+        throw new IllegalArgumentException("Invalid tennis set score. Valid scores include 6-0 through 6-4, 7-5, and 7-6.");
     }
 }

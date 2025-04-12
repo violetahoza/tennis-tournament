@@ -5,7 +5,7 @@ import {
   Paper, Button, Typography, Box, Divider, Alert, CircularProgress,
   Grid, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Card, CardContent
 } from '@mui/material';
-import { ArrowBack as ArrowBackIcon } from '@mui/icons-material';
+import { ArrowBack as ArrowBackIcon, EmojiEvents as WinnerIcon } from '@mui/icons-material';
 import { API_ENDPOINTS } from '../../config';
 import { AuthContext } from '../../context/AuthContext';
 
@@ -18,6 +18,7 @@ const MatchDetails = () => {
   const [scores, setScores] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [matchWinner, setMatchWinner] = useState(null);
 
   useEffect(() => {
     Promise.all([
@@ -31,6 +32,14 @@ const MatchDetails = () => {
       setLoading(false);
     });
   }, [id]);
+
+  // Calculate winner whenever scores or match changes
+  useEffect(() => {
+    if (match && match.status === 'COMPLETED' && scores.length > 0) {
+      const winnerInfo = calculateMatchWinner();
+      setMatchWinner(winnerInfo);
+    }
+  }, [match, scores]);
 
   const fetchMatch = async () => {
     try {
@@ -84,6 +93,44 @@ const MatchDetails = () => {
   // Determine if the current user is player1 or player2
   const isPlayer1 = match && auth.user && match.player1Id === auth.user.id;
   const isPlayer2 = match && auth.user && match.player2Id === auth.user.id;
+
+  // Calculate match winner
+  const calculateMatchWinner = () => {
+    if (!scores || scores.length === 0 || !match) {
+      return null;
+    }
+    
+    let player1Sets = 0;
+    let player2Sets = 0;
+    
+    scores.forEach(score => {
+      if (score.player1Score > score.player2Score) {
+        player1Sets++;
+      } else if (score.player2Score > score.player1Score) {
+        player2Sets++;
+      }
+    });
+    
+    if (player1Sets > player2Sets) {
+      return {
+        name: match.player1Name,
+        score: player1Sets,
+        loserName: match.player2Name,
+        loserScore: player2Sets,
+        isCurrentPlayerWinner: isPlayer1
+      };
+    } else if (player2Sets > player1Sets) {
+      return {
+        name: match.player2Name,
+        score: player2Sets,
+        loserName: match.player1Name,
+        loserScore: player1Sets,
+        isCurrentPlayerWinner: isPlayer2
+      };
+    } else {
+      return null; // Tie (shouldn't happen in completed matches)
+    }
+  };
 
   if (loading) {
     return (
@@ -144,6 +191,26 @@ const MatchDetails = () => {
         </CardContent>
       </Card>
 
+      {/* Winner display for completed matches */}
+      {match.status === 'COMPLETED' && matchWinner && (
+        <Card sx={{ mb: 3, backgroundColor: matchWinner.isCurrentPlayerWinner ? '#e8f5e9' : '#fff8e1' }}>
+          <CardContent sx={{ textAlign: 'center' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 1 }}>
+              <WinnerIcon sx={{ color: 'success.main', mr: 1 }} />
+              <Typography variant="h6" color="success.main">
+                Match Result
+              </Typography>
+            </Box>
+            <Typography variant="h5" gutterBottom>
+              Winner: {matchWinner.name} {matchWinner.isCurrentPlayerWinner && '(You)'}
+            </Typography>
+            <Typography variant="body1">
+              Final Score: {matchWinner.score} - {matchWinner.loserScore}
+            </Typography>
+          </CardContent>
+        </Card>
+      )}
+
       <Card sx={{ mb: 3 }}>
         <CardContent>
           <Typography variant="h6" gutterBottom>Match Score</Typography>
@@ -166,8 +233,14 @@ const MatchDetails = () => {
                   {scores.map((score) => (
                     <TableRow key={score.id}>
                       <TableCell>{score.setNumber}</TableCell>
-                      <TableCell align="center">{score.player1Score}</TableCell>
-                      <TableCell align="center">{score.player2Score}</TableCell>
+                      <TableCell align="center">
+                        {score.player1Score}
+                        {isPlayer1 && score.player1Score > score.player2Score && ' ✓'}
+                      </TableCell>
+                      <TableCell align="center">
+                        {score.player2Score}
+                        {isPlayer2 && score.player2Score > score.player1Score && ' ✓'}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -176,40 +249,8 @@ const MatchDetails = () => {
           )}
         </CardContent>
       </Card>
-
-      {match.status === 'COMPLETED' && (
-        <Box sx={{ textAlign: 'center', mt: 4 }}>
-          <Typography variant="h6" color="primary">
-            {calculateMatchWinner(scores, match)}
-          </Typography>
-        </Box>
-      )}
     </Paper>
   );
-
-  // Helper function to calculate the winner
-  function calculateMatchWinner(scores, match) {
-    if (!scores || scores.length === 0) return "No scores recorded yet";
-    
-    let player1Sets = 0;
-    let player2Sets = 0;
-    
-    scores.forEach(score => {
-      if (score.player1Score > score.player2Score) {
-        player1Sets++;
-      } else if (score.player2Score > score.player1Score) {
-        player2Sets++;
-      }
-    });
-    
-    if (player1Sets > player2Sets) {
-      return `Winner: ${match.player1Name}`;
-    } else if (player2Sets > player1Sets) {
-      return `Winner: ${match.player2Name}`;
-    } else {
-      return "Match tied";
-    }
-  }
 };
 
 export default MatchDetails;

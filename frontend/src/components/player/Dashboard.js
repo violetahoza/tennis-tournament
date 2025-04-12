@@ -10,6 +10,7 @@ import {
 } from '@mui/icons-material';
 import { useContext } from 'react';
 import { AuthContext } from '../../context/AuthContext';
+import Notifications from '../common/Notifications'; 
 
 // Player Components
 import TournamentList from './TournamentList';
@@ -96,6 +97,10 @@ const Dashboard = () => {
           <Typography variant="subtitle1" sx={{ mr: 2 }}>
             Welcome, {auth.user.firstName || ''} {auth.user.lastName || ''}
           </Typography>
+          
+          {/* Add Notifications component here */}
+          <Notifications />
+          
           <IconButton color="inherit" onClick={handleLogout}>
             <LogoutIcon />
           </IconButton>
