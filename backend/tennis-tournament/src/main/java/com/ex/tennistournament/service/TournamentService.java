@@ -70,13 +70,32 @@ public class TournamentService {
 
         validateTournamentDates(tournamentDto);
 
-        tournament.setName(tournamentDto.getName());
-        tournament.setDescription(tournamentDto.getDescription());
-        tournament.setLocation(tournamentDto.getLocation());
-        tournament.setStartDate(tournamentDto.getStartDate());
-        tournament.setEndDate(tournamentDto.getEndDate());
-        tournament.setRegistrationDeadline(tournamentDto.getRegistrationDeadline());
-        tournament.setMaxParticipants(tournamentDto.getMaxParticipants());
+        // Check for null values before updating
+        if (tournamentDto.getName() != null) {
+            tournament.setName(tournamentDto.getName());
+        }
+
+        tournament.setDescription(tournamentDto.getDescription()); // Description can be null
+
+        if (tournamentDto.getLocation() != null) {
+            tournament.setLocation(tournamentDto.getLocation());
+        }
+
+        if (tournamentDto.getStartDate() != null) {
+            tournament.setStartDate(tournamentDto.getStartDate());
+        }
+
+        if (tournamentDto.getEndDate() != null) {
+            tournament.setEndDate(tournamentDto.getEndDate());
+        }
+
+        if (tournamentDto.getRegistrationDeadline() != null) {
+            tournament.setRegistrationDeadline(tournamentDto.getRegistrationDeadline());
+        }
+
+        if (tournamentDto.getMaxParticipants() != null) {
+            tournament.setMaxParticipants(tournamentDto.getMaxParticipants());
+        }
 
         Tournament updatedTournament = tournamentRepository.save(tournament);
         return mapToDto(updatedTournament);
@@ -84,18 +103,34 @@ public class TournamentService {
 
     @Transactional
     public void deleteTournament(Long id) {
-        if (!tournamentRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Tournament not found with id: " + id);
+        Tournament tournament = tournamentRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Tournament not found with id: " + id));
+
+        // Check if the tournament has already started
+        if (tournament.getStartDate().isBefore(LocalDate.now()) || tournament.getStartDate().isEqual(LocalDate.now())) {
+            throw new IllegalStateException("Cannot delete a tournament that has already started");
         }
+
+        // Delete the tournament
         tournamentRepository.deleteById(id);
     }
 
     private void validateTournamentDates(TournamentDto tournamentDto) {
+        // Check for null dates first
+        if (tournamentDto.getStartDate() == null || tournamentDto.getEndDate() == null || tournamentDto.getRegistrationDeadline() == null) {
+            throw new IllegalArgumentException("All dates (start date, end date, and registration deadline) must be provided");
+        }
+
         if (tournamentDto.getEndDate().isBefore(tournamentDto.getStartDate())) {
             throw new IllegalArgumentException("End date cannot be before start date");
         }
         if (tournamentDto.getRegistrationDeadline().isAfter(tournamentDto.getStartDate())) {
             throw new IllegalArgumentException("Registration deadline cannot be after start date");
+        }
+
+        // Check if max participants is valid
+        if (tournamentDto.getMaxParticipants() == null || tournamentDto.getMaxParticipants() < 2) {
+            throw new IllegalArgumentException("Maximum participants must be at least 2");
         }
     }
 

@@ -5,9 +5,9 @@ import {
   Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, 
   Button, Typography, Box, TextField, Select, MenuItem, FormControl, InputLabel,
   Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle,
-  Chip, CircularProgress, Alert
+  Chip, CircularProgress, Alert, IconButton, Tooltip
 } from '@mui/material';
-import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon } from '@mui/icons-material';
+import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon, EmojiEvents as TournamentIcon } from '@mui/icons-material';
 import { API_ENDPOINTS } from '../../config';
 
 const TournamentList = () => {
@@ -15,8 +15,10 @@ const TournamentList = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [tournamentToDelete, setTournamentToDelete] = useState(null);
+  const [deleteInProgress, setDeleteInProgress] = useState(false);
   
   const navigate = useNavigate();
 
@@ -52,14 +54,28 @@ const TournamentList = () => {
   };
 
   const handleDeleteConfirm = async () => {
+    if (!tournamentToDelete) return;
+    
+    setDeleteInProgress(true);
     try {
       await axios.delete(API_ENDPOINTS.TOURNAMENTS.DELETE(tournamentToDelete.id));
       setTournaments(tournaments.filter(t => t.id !== tournamentToDelete.id));
       setDeleteDialogOpen(false);
       setTournamentToDelete(null);
     } catch (err) {
-      console.error(err);
-      setError('Error deleting tournament. Please try again.');
+      console.error('Error deleting tournament:', err);
+      let errorMessage = 'Error deleting tournament. Please try again.';
+      
+      // Get more specific error message if available
+      if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err.response?.data?.error) {
+        errorMessage = err.response.data.error;
+      }
+      
+      setError(errorMessage);
+    } finally {
+      setDeleteInProgress(false);
     }
   };
 
@@ -67,11 +83,24 @@ const TournamentList = () => {
     setSearchTerm(e.target.value);
   };
 
-  // Filter tournaments based on search term
+  const handleStatusFilterChange = (e) => {
+    setStatusFilter(e.target.value);
+  };
+
+  // Filter tournaments based on search term and status filter
   const filteredTournaments = tournaments.filter(tournament => {
-    return searchTerm === '' || 
-      tournament.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      tournament.location.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = searchTerm === '' || 
+      (tournament.name && tournament.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (tournament.location && tournament.location.toLowerCase().includes(searchTerm.toLowerCase()));
+    
+    let matchesStatus = true;
+    if (statusFilter === 'OPEN') {
+      matchesStatus = tournament.registrationOpen;
+    } else if (statusFilter === 'CLOSED') {
+      matchesStatus = !tournament.registrationOpen;
+    }
+    
+    return matchesSearch && matchesStatus;
   });
 
   const formatDate = (dateString) => {
@@ -80,6 +109,11 @@ const TournamentList = () => {
 
   const getRegistrationStatusColor = (isOpen) => {
     return isOpen ? 'success' : 'error';
+  };
+
+  // Check if a tournament is upcoming (start date is in the future)
+  const isUpcomingTournament = (tournament) => {
+    return new Date(tournament.startDate) > new Date();
   };
 
   if (loading) {
@@ -114,6 +148,19 @@ const TournamentList = () => {
           onChange={handleSearchChange}
           fullWidth
         />
+        <FormControl sx={{ minWidth: 200 }}>
+          <InputLabel id="status-filter-label">Registration Status</InputLabel>
+          <Select
+            labelId="status-filter-label"
+            value={statusFilter}
+            label="Registration Status"
+            onChange={handleStatusFilterChange}
+          >
+            <MenuItem value="">All Statuses</MenuItem>
+            <MenuItem value="OPEN">Registration Open</MenuItem>
+            <MenuItem value="CLOSED">Registration Closed</MenuItem>
+          </Select>
+        </FormControl>
       </Box>
 
       <TableContainer component={Paper}>
@@ -168,6 +215,8 @@ const TournamentList = () => {
                       size="small"
                       startIcon={<DeleteIcon />}
                       onClick={() => handleDeleteClick(tournament)}
+                      disabled={!isUpcomingTournament(tournament)}
+                      title={!isUpcomingTournament(tournament) ? "Cannot delete tournaments that have already started" : ""}
                     >
                       Delete
                     </Button>
@@ -182,7 +231,7 @@ const TournamentList = () => {
       {/* Delete Confirmation Dialog */}
       <Dialog
         open={deleteDialogOpen}
-        onClose={() => setDeleteDialogOpen(false)}
+        onClose={() => !deleteInProgress && setDeleteDialogOpen(false)}
       >
         <DialogTitle>Confirm Delete</DialogTitle>
         <DialogContent>
@@ -191,8 +240,14 @@ const TournamentList = () => {
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleDeleteConfirm} color="error">Delete</Button>
+          <Button onClick={() => setDeleteDialogOpen(false)} disabled={deleteInProgress}>Cancel</Button>
+          <Button 
+            onClick={handleDeleteConfirm} 
+            color="error" 
+            disabled={deleteInProgress}
+          >
+            {deleteInProgress ? 'Deleting...' : 'Delete'}
+          </Button>
         </DialogActions>
       </Dialog>
     </>

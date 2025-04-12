@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { 
-  Paper, Button, Typography, Box, TextField, FormControl, InputLabel, Select,
-  MenuItem, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, 
-  Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogContentText, 
-  DialogTitle, Alert
+  Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, 
+  Button, Typography, Box, TextField, Select, MenuItem, FormControl, InputLabel,
+  Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle,
+  Chip, CircularProgress, Alert
 } from '@mui/material';
 import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon } from '@mui/icons-material';
 import { API_ENDPOINTS } from '../../config';
@@ -20,6 +20,7 @@ const MatchList = () => {
   const [tournamentFilter, setTournamentFilter] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [matchToDelete, setMatchToDelete] = useState(null);
+  const [deleteInProgress, setDeleteInProgress] = useState(false);
   
   const navigate = useNavigate();
 
@@ -66,6 +67,7 @@ const MatchList = () => {
   const handleDeleteConfirm = async () => {
     if (!matchToDelete) return;
     
+    setDeleteInProgress(true);
     try {
       await axios.delete(API_ENDPOINTS.MATCHES.DELETE(matchToDelete.id));
       setMatches(prevMatches => prevMatches.filter(match => match.id !== matchToDelete.id));
@@ -73,7 +75,16 @@ const MatchList = () => {
       setMatchToDelete(null);
     } catch (err) {
       console.error('Error deleting match:', err);
-      setError('Error deleting match. Please try again.');
+      let errorMessage = 'Error deleting match. Please try again.';
+      
+      // Get more specific error message if available
+      if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      }
+      
+      setError(errorMessage);
+    } finally {
+      setDeleteInProgress(false);
     }
   };
 
@@ -86,6 +97,12 @@ const MatchList = () => {
       // Set authorization header for the request
       const token = localStorage.getItem('token');
       if (token) {
+        // Create a hidden anchor element to download the file
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        
+        // Use XMLHttpRequest for binary data download with auth headers
         const xhr = new XMLHttpRequest();
         xhr.open('GET', url, true);
         xhr.setRequestHeader('Authorization', `Bearer ${token}`);
@@ -95,12 +112,9 @@ const MatchList = () => {
           if (this.status === 200) {
             const blob = new Blob([this.response], { type: 'text/csv' });
             const downloadUrl = URL.createObjectURL(blob);
-            const a = document.createElement('a');
             a.href = downloadUrl;
             a.download = 'matches.csv';
-            document.body.appendChild(a);
             a.click();
-            document.body.removeChild(a);
             URL.revokeObjectURL(downloadUrl);
           } else {
             console.error('Error exporting CSV:', this.statusText);
@@ -114,6 +128,7 @@ const MatchList = () => {
         };
         
         xhr.send();
+        setTimeout(() => document.body.removeChild(a), 100);
       } else {
         setError('You need to be logged in to export data.');
       }
@@ -132,6 +147,12 @@ const MatchList = () => {
       // Set authorization header for the request
       const token = localStorage.getItem('token');
       if (token) {
+        // Create a hidden anchor element to download the file
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        
+        // Use XMLHttpRequest for binary data download with auth headers
         const xhr = new XMLHttpRequest();
         xhr.open('GET', url, true);
         xhr.setRequestHeader('Authorization', `Bearer ${token}`);
@@ -141,12 +162,9 @@ const MatchList = () => {
           if (this.status === 200) {
             const blob = new Blob([this.response], { type: 'text/plain' });
             const downloadUrl = URL.createObjectURL(blob);
-            const a = document.createElement('a');
             a.href = downloadUrl;
             a.download = 'matches.txt';
-            document.body.appendChild(a);
             a.click();
-            document.body.removeChild(a);
             URL.revokeObjectURL(downloadUrl);
           } else {
             console.error('Error exporting TXT:', this.statusText);
@@ -160,6 +178,7 @@ const MatchList = () => {
         };
         
         xhr.send();
+        setTimeout(() => document.body.removeChild(a), 100);
       } else {
         setError('You need to be logged in to export data.');
       }
@@ -214,6 +233,12 @@ const MatchList = () => {
       case 'CANCELLED': return 'error';
       default: return 'default';
     }
+  };
+
+  // Check if a match can be safely deleted
+  const canDeleteMatch = (match) => {
+    // Only scheduled or cancelled matches can be deleted
+    return match.status === 'SCHEDULED' || match.status === 'CANCELLED';
   };
 
   if (loading) {
@@ -355,7 +380,8 @@ const MatchList = () => {
                       size="small"
                       startIcon={<DeleteIcon />}
                       onClick={() => handleDeleteClick(match)}
-                      disabled={match.status === 'COMPLETED'}
+                      disabled={!canDeleteMatch(match)}
+                      title={!canDeleteMatch(match) ? "Only scheduled or cancelled matches can be deleted" : ""}
                     >
                       Delete
                     </Button>
@@ -370,7 +396,7 @@ const MatchList = () => {
       {/* Delete Confirmation Dialog */}
       <Dialog
         open={deleteDialogOpen}
-        onClose={() => setDeleteDialogOpen(false)}
+        onClose={() => !deleteInProgress && setDeleteDialogOpen(false)}
       >
         <DialogTitle>Confirm Delete</DialogTitle>
         <DialogContent>
@@ -379,8 +405,14 @@ const MatchList = () => {
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleDeleteConfirm} color="error">Delete</Button>
+          <Button onClick={() => setDeleteDialogOpen(false)} disabled={deleteInProgress}>Cancel</Button>
+          <Button 
+            onClick={handleDeleteConfirm} 
+            color="error" 
+            disabled={deleteInProgress}
+          >
+            {deleteInProgress ? 'Deleting...' : 'Delete'}
+          </Button>
         </DialogActions>
       </Dialog>
     </>

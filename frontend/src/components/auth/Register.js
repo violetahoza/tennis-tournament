@@ -7,9 +7,10 @@ import {
 } from '@mui/material';
 import { API_ENDPOINTS } from '../../config';
 import { AuthContext } from '../../context/AuthContext';
+import '../../styles/Auth.css'; 
 
 const Register = () => {
-  const { auth, clearError } = useContext(AuthContext);
+  const { login, auth, clearError } = useContext(AuthContext);
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -181,10 +182,42 @@ const Register = () => {
       };
       console.log('Registration data:', registrationDto);
 
-      const response = await axios.post(API_ENDPOINTS.AUTH.REGISTER, registrationDto);
+      // Register the user
+      const registerResponse  = await axios.post(API_ENDPOINTS.AUTH.REGISTER, registrationDto);
 
-      console.log('Registration successful:', response.data);
-      navigate('/login', { state: { message: 'Registration successful. You can now login.' } });
+      console.log('Registration successful:', registerResponse.data);
+      //navigate('/login', { state: { message: 'Registration successful. You can now login.' } });
+
+      // Automatically log in after successful registration
+      const loginResponse = await axios.post(API_ENDPOINTS.AUTH.LOGIN, {
+        username,
+        password
+      });
+  
+      if (loginResponse.data && loginResponse.data.token) {
+        // Store user data in localStorage
+        localStorage.setItem('userData', JSON.stringify({
+          id: loginResponse.data.id,
+          username: loginResponse.data.username,
+          email: loginResponse.data.email,
+          userType: loginResponse.data.userType,
+          firstName: loginResponse.data.firstName || '',
+          lastName: loginResponse.data.lastName || ''
+        }));
+        
+        // Update auth context
+        await login(loginResponse.data.token);
+        
+        // Redirect based on role
+        redirectBasedOnRole(loginResponse.data.userType);
+      } else {
+        // If auto-login failed but registration succeeded
+        navigate('/login', { 
+          state: { 
+            message: 'Registration successful. Please login with your credentials.' 
+          } 
+        });
+      }
     } catch (err) {
       console.error('Registration error:', err);
       
@@ -244,174 +277,182 @@ const Register = () => {
   };
 
   return (
-    <Container component="main" maxWidth="sm">
-      <Paper elevation={3} sx={{ p: 4, mt: 8, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <Typography component="h1" variant="h5">
-          Tennis Tournament Registration
-        </Typography>
-        
-        {/* Global Error Alert */}
-        {error && (
-          <Alert 
-            severity="error" 
-            sx={{ 
-              mt: 2, 
-              width: '100%',
-              display: 'flex',
-              alignItems: 'center'
-            }}
-            onClose={() => setError('')}
-          >
-            {error}
-          </Alert>
-        )}
-        
-        <Box component="form" onSubmit={onSubmit} sx={{ mt: 1, width: '100%' }}>
-          <TextField
-            margin="normal"
-            required
-            fullWidth
-            id="username"
-            label="Username"
-            name="username"
-            value={username}
-            onChange={onChange}
-            onBlur={onBlur}
-            autoComplete="username"
-            autoFocus
-            error={(shouldShowError('username') && Boolean(validationErrors.username)) || 
-                   (error && error.toLowerCase().includes('username'))}
-            helperText={
-              (shouldShowError('username') && validationErrors.username) || ' '
-            }
-            disabled={loading}
-          />
+    <div className="auth-container">
+      <Container component="main" maxWidth="sm" className="auth-content">
+        <Paper elevation={6} className="auth-paper">
+          <div className="auth-header">
+            <Typography component="h1" variant="h4" className="auth-title">
+              Create Your Account
+            </Typography>
+            <Typography variant="subtitle1" className="auth-subtitle">
+              Join our tennis tournament community
+            </Typography>
+          </div>
           
-          <TextField
-            margin="normal"
-            required
-            fullWidth
-            id="email"
-            label="Email Address"
-            name="email"
-            value={email}
-            onChange={onChange}
-            onBlur={onBlur}
-            autoComplete="email"
-            type="email"
-            error={(shouldShowError('email') && Boolean(validationErrors.email)) || 
-                  (error && error.toLowerCase().includes('email'))}
-            helperText={
-              (shouldShowError('email') && validationErrors.email) || ' '
-            }
-            disabled={loading}
-          />
+          {/* Global Error Alert */}
+          {error && (
+            <Alert 
+              severity="error" 
+              className="auth-alert"
+              onClose={() => setError('')}
+            >
+              {error}
+            </Alert>
+          )}
           
-          <Box sx={{ display: 'flex', gap: 2 }}>
+          <Box component="form" onSubmit={onSubmit} className="auth-form">
             <TextField
               margin="normal"
               required
               fullWidth
-              id="firstName"
-              label="First Name"
-              name="firstName"
-              value={firstName}
+              id="username"
+              label="Username"
+              name="username"
+              value={username}
               onChange={onChange}
               onBlur={onBlur}
-              error={shouldShowError('firstName') && Boolean(validationErrors.firstName)}
-              helperText={shouldShowError('firstName') ? validationErrors.firstName : ' '}
+              autoComplete="username"
+              autoFocus
+              error={(shouldShowError('username') && Boolean(validationErrors.username)) || 
+                    (error && error.toLowerCase().includes('username'))}
+              helperText={
+                (shouldShowError('username') && validationErrors.username) || ' '
+              }
               disabled={loading}
+              className="auth-input"
             />
             
             <TextField
               margin="normal"
               required
               fullWidth
-              id="lastName"
-              label="Last Name"
-              name="lastName"
-              value={lastName}
+              id="email"
+              label="Email Address"
+              name="email"
+              value={email}
               onChange={onChange}
               onBlur={onBlur}
-              error={shouldShowError('lastName') && Boolean(validationErrors.lastName)}
-              helperText={shouldShowError('lastName') ? validationErrors.lastName : ' '}
+              autoComplete="email"
+              type="email"
+              error={(shouldShowError('email') && Boolean(validationErrors.email)) || 
+                    (error && error.toLowerCase().includes('email'))}
+              helperText={
+                (shouldShowError('email') && validationErrors.email) || ' '
+              }
               disabled={loading}
+              className="auth-input"
             />
-          </Box>
-          
-          <TextField
-            margin="normal"
-            required
-            fullWidth
-            name="password"
-            label="Password"
-            type="password"
-            id="password"
-            value={password}
-            onChange={onChange}
-            onBlur={onBlur}
-            autoComplete="new-password"
-            error={shouldShowError('password') && Boolean(validationErrors.password)}
-            helperText={shouldShowError('password') ? 
-              validationErrors.password : 
-              'Password must have at least 8 characters'}
-            disabled={loading}
-          />
-          
-          <TextField
-            margin="normal"
-            required
-            fullWidth
-            name="confirmPassword"
-            label="Confirm Password"
-            type="password"
-            id="confirmPassword"
-            value={confirmPassword}
-            onChange={onChange}
-            onBlur={onBlur}
-            error={shouldShowError('confirmPassword') && Boolean(validationErrors.confirmPassword)}
-            helperText={shouldShowError('confirmPassword') ? validationErrors.confirmPassword : ' '}
-            disabled={loading}
-          />
-          
-          <FormControl fullWidth margin="normal" disabled={loading}>
-            <InputLabel id="userType-label">Role</InputLabel>
-            <Select
-              labelId="userType-label"
-              id="userType"
-              name="userType"
-              value={userType}
+            
+            <div className="name-fields-container">
+              <TextField
+                margin="normal"
+                required
+                fullWidth
+                id="firstName"
+                label="First Name"
+                name="firstName"
+                value={firstName}
+                onChange={onChange}
+                onBlur={onBlur}
+                error={shouldShowError('firstName') && Boolean(validationErrors.firstName)}
+                helperText={shouldShowError('firstName') ? validationErrors.firstName : ' '}
+                disabled={loading}
+                className="auth-input name-field"
+              />
+              
+              <TextField
+                margin="normal"
+                required
+                fullWidth
+                id="lastName"
+                label="Last Name"
+                name="lastName"
+                value={lastName}
+                onChange={onChange}
+                onBlur={onBlur}
+                error={shouldShowError('lastName') && Boolean(validationErrors.lastName)}
+                helperText={shouldShowError('lastName') ? validationErrors.lastName : ' '}
+                disabled={loading}
+                className="auth-input name-field"
+              />
+            </div>
+            
+            <TextField
+              margin="normal"
+              required
+              fullWidth
+              name="password"
+              label="Password"
+              type="password"
+              id="password"
+              value={password}
               onChange={onChange}
-              label="Role"
+              onBlur={onBlur}
+              autoComplete="new-password"
+              error={shouldShowError('password') && Boolean(validationErrors.password)}
+              helperText={shouldShowError('password') ? 
+                validationErrors.password : 
+                'Password must have at least 8 characters'}
+              disabled={loading}
+              className="auth-input"
+            />
+            
+            <TextField
+              margin="normal"
+              required
+              fullWidth
+              name="confirmPassword"
+              label="Confirm Password"
+              type="password"
+              id="confirmPassword"
+              value={confirmPassword}
+              onChange={onChange}
+              onBlur={onBlur}
+              error={shouldShowError('confirmPassword') && Boolean(validationErrors.confirmPassword)}
+              helperText={shouldShowError('confirmPassword') ? validationErrors.confirmPassword : ' '}
+              disabled={loading}
+              className="auth-input"
+            />
+            
+            <FormControl fullWidth margin="normal" disabled={loading} className="auth-input">
+              <InputLabel id="userType-label">Role</InputLabel>
+              <Select
+                labelId="userType-label"
+                id="userType"
+                name="userType"
+                value={userType}
+                onChange={onChange}
+                label="Role"
+              >
+                <MenuItem value="PLAYER">Player</MenuItem>
+                <MenuItem value="REFEREE">Referee</MenuItem>
+              </Select>
+            </FormControl>
+            
+            <Button
+              type="submit"
+              fullWidth
+              variant="contained"
+              className="auth-button"
+              disabled={loading}
             >
-              <MenuItem value="PLAYER">Player</MenuItem>
-              <MenuItem value="REFEREE">Referee</MenuItem>
-            </Select>
-          </FormControl>
-          
-          <Button
-            type="submit"
-            fullWidth
-            variant="contained"
-            color="primary"
-            sx={{ mt: 3, mb: 2 }}
-            disabled={loading}
-            startIcon={loading ? <CircularProgress size={20} /> : null}
-          >
-            {loading ? 'Registering...' : 'Register'}
-          </Button>
-          
-          <Box sx={{ textAlign: 'center', mt: 2 }}>
-            <Typography variant="body2">
+              {loading ? <CircularProgress size={24} className="auth-spinner" /> : 'Register'}
+            </Button>
+            
+            <Typography variant="body2" className="auth-switch-text">
               Already have an account?{' '}
-              <Button color="primary" onClick={() => navigate('/login')} disabled={loading}>
+              <Button 
+                className="auth-switch-button"
+                onClick={() => navigate('/login')} 
+                disabled={loading}
+              >
                 Login
               </Button>
             </Typography>
           </Box>
-        </Box>
-      </Paper>
-    </Container>
+        </Paper>
+      </Container>
+    </div>
   );
 };
 

@@ -94,7 +94,7 @@ const Dashboard = () => {
             Tennis Tournament - Player
           </Typography>
           <Typography variant="subtitle1" sx={{ mr: 2 }}>
-            Welcome, {auth.user?.firstName} {auth.user?.lastName}
+            Welcome, {auth.user.firstName || ''} {auth.user.lastName || ''}
           </Typography>
           <IconButton color="inherit" onClick={handleLogout}>
             <LogoutIcon />

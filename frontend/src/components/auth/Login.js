@@ -4,6 +4,7 @@ import axios from 'axios';
 import { Button, TextField, Paper, Typography, Container, Box, Alert, CircularProgress } from '@mui/material';
 import { API_ENDPOINTS } from '../../config';
 import { AuthContext } from '../../context/AuthContext';
+import '../../styles/Auth.css'; 
 
 const Login = () => {
   const [formData, setFormData] = useState({
@@ -82,71 +83,83 @@ const Login = () => {
   };
 
   return (
-    <Container component="main" maxWidth="xs">
-      <Paper elevation={6} sx={{ marginTop: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: 4 }}>
-        <Typography component="h1" variant="h5">
-          Tennis Tournament Login
-        </Typography>
-        
-        {message && (
-          <Alert severity="success" sx={{ width: '100%', mt: 2 }}>
-            {message}
-          </Alert>
-        )}
-        
-        {error && (
-          <Alert severity="error" sx={{ width: '100%', mt: 2 }}>
-            {error}
-          </Alert>
-        )}
-        
-        <Box component="form" onSubmit={onSubmit} noValidate sx={{ mt: 1, width: '100%' }}>
-          <TextField
-            margin="normal"
-            required
-            fullWidth
-            id="username"
-            label="Username"
-            name="username"
-            autoComplete="username"
-            autoFocus
-            value={formData.username}
-            onChange={onChange}
-          />
-          <TextField
-            margin="normal"
-            required
-            fullWidth
-            name="password"
-            label="Password"
-            type="password"
-            id="password"
-            autoComplete="current-password"
-            value={formData.password}
-            onChange={onChange}
-          />
-          <Button
-            type="submit"
-            fullWidth
-            variant="contained"
-            sx={{ mt: 3, mb: 2 }}
-            disabled={loading}
-          >
-            {loading ? <CircularProgress size={24} /> : 'Login'}
-          </Button>
+    <div className="auth-container">
+      <Container component="main" maxWidth="xs" className="auth-content">
+        <Paper elevation={6} className="auth-paper">
+          <div className="auth-header">
+            <Typography component="h1" variant="h4" className="auth-title">
+              Welcome Back
+            </Typography>
+            <Typography variant="subtitle1" className="auth-subtitle">
+              Sign in to your tennis account
+            </Typography>
+          </div>
           
-          <Typography variant="body2" align="center">
-            Don't have an account?{' '}
-            <Button 
-              color="primary" 
-              onClick={() => navigate('/register')}
+          {message && (
+            <Alert severity="success" className="auth-alert">
+              {message}
+            </Alert>
+          )}
+          
+          {error && (
+            <Alert severity="error" className="auth-alert">
+              {error}
+            </Alert>
+          )}
+          
+          <Box component="form" onSubmit={onSubmit} noValidate className="auth-form">
+            <TextField
+              margin="normal"
+              required
+              fullWidth
+              id="username"
+              label="Username"
+              name="username"
+              autoComplete="username"
+              autoFocus
+              value={formData.username}
+              onChange={onChange}
+              className="auth-input"
+              variant="outlined"
+            />
+            <TextField
+              margin="normal"
+              required
+              fullWidth
+              name="password"
+              label="Password"
+              type="password"
+              id="password"
+              autoComplete="current-password"
+              value={formData.password}
+              onChange={onChange}
+              className="auth-input"
+              variant="outlined"
+            />
+            <Button
+              type="submit"
+              fullWidth
+              variant="contained"
+              className="auth-button"
+              disabled={loading}
             >
-              Register
+              {loading ? <CircularProgress size={24} className="auth-spinner" /> : 'Sign In'}
             </Button>
-          </Typography>
-        </Box>
-      </Paper>
-    </Container>
+            
+            <Typography variant="body2" className="auth-register-text">
+              Don't have an account?{' '}
+              <Button 
+                color="secondary" 
+                className="auth-register-button"
+                onClick={() => navigate('/register')}
+              >
+                Create one
+              </Button>
+            </Typography>
+          </Box>
+        </Paper>
+      </Container>
+    </div>
   );
 };
 

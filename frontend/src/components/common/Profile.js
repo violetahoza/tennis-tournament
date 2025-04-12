@@ -26,10 +26,19 @@ const Profile = () => {
     yearsOfExperience: 0 // For referees
   });
   
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
   const [error, setError] = useState(null);
+  const [passwordError, setPasswordError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [passwordSuccess, setPasswordSuccess] = useState(null);
 
   useEffect(() => {
     if (auth.user) {
@@ -44,8 +53,6 @@ const Profile = () => {
     try {
       const res = await axios.get(API_ENDPOINTS.USERS.GET_BY_ID(auth.user.id));
       const userData = res.data;
-      
-      console.log('Fetched user data:', userData);
       
       setProfile({
         firstName: userData.firstName || '',
@@ -70,6 +77,14 @@ const Profile = () => {
     setProfile({
       ...profile,
       [name]: name === 'yearsOfExperience' ? (parseInt(value, 10) || 0) : value
+    });
+  };
+  
+  const handlePasswordChange = (e) => {
+    const { name, value } = e.target;
+    setPasswordData({
+      ...passwordData,
+      [name]: value
     });
   };
 
@@ -99,12 +114,8 @@ const Profile = () => {
         updateData.yearsOfExperience = profile.yearsOfExperience;
       }
       
-      console.log('Sending update data:', updateData);
-      
       // Send the update request
       const res = await axios.put(API_ENDPOINTS.USERS.UPDATE(auth.user.id), updateData);
-      
-      console.log('Update response:', res.data);
       
       // Refresh the auth context with the new user data
       await loadUser();
@@ -119,6 +130,67 @@ const Profile = () => {
       setError(typeof errorMessage === 'string' ? errorMessage : JSON.stringify(errorMessage));
     } finally {
       setSaving(false);
+    }
+  };
+  
+  const handlePasswordSubmit = async (e) => {
+    e.preventDefault();
+    
+    // Basic validation
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      setPasswordError("New passwords don't match!");
+      return;
+    }
+    
+    if (passwordData.newPassword.length < 8) {
+      setPasswordError("Password must be at least 8 characters long");
+      return;
+    }
+    
+    // Check if password has an uppercase letter, lowercase letter, and a digit
+    const hasUppercase = /[A-Z]/.test(passwordData.newPassword);
+    const hasLowercase = /[a-z]/.test(passwordData.newPassword);
+    const hasDigit = /\d/.test(passwordData.newPassword);
+    
+    if (!hasUppercase || !hasLowercase || !hasDigit) {
+      setPasswordError("Password must contain at least one uppercase letter, one lowercase letter, and one number");
+      return;
+    }
+    
+    setChangingPassword(true);
+    setPasswordError(null);
+    setPasswordSuccess(null);
+    
+    try {
+      // Create password update request
+      const passwordUpdateData = {
+        id: auth.user.id,
+        username: auth.user.username,
+        currentPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword
+      };
+      
+      // For this implementation, we'll use a custom endpoint for password change
+      // Alternatively, you could adapt the user update endpoint for this purpose
+      const res = await axios.put(API_ENDPOINTS.USERS.UPDATE_PASSWORD(auth.user.id), passwordUpdateData);
+      
+      setPasswordSuccess('Password updated successfully!');
+      
+      // Clear password fields
+      setPasswordData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      });
+      
+    } catch (err) {
+      console.error('Password update error:', err);
+      const errorMessage = err.response?.data?.message || 
+                        err.response?.data || 
+                        'Error updating password. Please try again.';
+      setPasswordError(typeof errorMessage === 'string' ? errorMessage : JSON.stringify(errorMessage));
+    } finally {
+      setChangingPassword(false);
     }
   };
 
@@ -206,7 +278,7 @@ const Profile = () => {
         </Card>
         
         {/* Player specific fields */}
-        {userType === 'PLAYER' && (
+        {/* {userType === 'PLAYER' && (
           <Card sx={{ mb: 4 }}>
             <CardContent>
               <Typography variant="h6" gutterBottom>Player Information</Typography>
@@ -232,9 +304,9 @@ const Profile = () => {
               </Grid>
             </CardContent>
           </Card>
-        )}
+        )} */}
         
-        {/* Referee specific fields */}
+        {/* Referee specific fields
         {userType === 'REFEREE' && (
           <Card sx={{ mb: 4 }}>
             <CardContent>
@@ -263,7 +335,7 @@ const Profile = () => {
               </Grid>
             </CardContent>
           </Card>
-        )}
+        )} */}
         
         <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
           <Button
@@ -277,6 +349,67 @@ const Profile = () => {
           </Button>
         </Box>
       </form>
+      
+      {/* Password Change Section */}
+      <Card sx={{ mt: 4 }}>
+        <CardContent>
+          <Typography variant="h6" gutterBottom>Change Password</Typography>
+          
+          {passwordError && <Alert severity="error" sx={{ mb: 3 }}>{passwordError}</Alert>}
+          {passwordSuccess && <Alert severity="success" sx={{ mb: 3 }}>{passwordSuccess}</Alert>}
+          
+          <form onSubmit={handlePasswordSubmit}>
+            <Grid container spacing={3}>
+              <Grid item xs={12}>
+                <TextField
+                  name="currentPassword"
+                  label="Current Password"
+                  type="password"
+                  fullWidth
+                  value={passwordData.currentPassword}
+                  onChange={handlePasswordChange}
+                  required
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  name="newPassword"
+                  label="New Password"
+                  type="password"
+                  fullWidth
+                  value={passwordData.newPassword}
+                  onChange={handlePasswordChange}
+                  required
+                  helperText="Must be at least 8 characters with uppercase, lowercase, and number"
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  name="confirmPassword"
+                  label="Confirm New Password"
+                  type="password"
+                  fullWidth
+                  value={passwordData.confirmPassword}
+                  onChange={handlePasswordChange}
+                  required
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <Button
+                    type="submit"
+                    variant="contained"
+                    color="secondary"
+                    disabled={changingPassword}
+                  >
+                    {changingPassword ? 'Updating...' : 'Update Password'}
+                  </Button>
+                </Box>
+              </Grid>
+            </Grid>
+          </form>
+        </CardContent>
+      </Card>
     </Paper>
   );
 };

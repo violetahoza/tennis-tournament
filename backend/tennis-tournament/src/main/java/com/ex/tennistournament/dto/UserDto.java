@@ -1,6 +1,7 @@
 package com.ex.tennistournament.dto;
 
 import com.ex.tennistournament.model.User;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -33,6 +34,10 @@ public class UserDto {
     @NotBlank(message = "Last name cannot be empty")
     @Size(min = 2, max = 50, message = "Last name must be between 2 and 50 characters")
     private String lastName;
+
+    // Only used when sending from client to server, never included in responses
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    private String password;
 
     private User.UserType userType;
 }

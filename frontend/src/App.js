@@ -8,9 +8,13 @@ import axios from 'axios';
 import Login from './components/auth/Login';
 import Register from './components/auth/Register';
 
-// Dashboard Components
+// Admin Components
 import AdminDashboard from './components/admin/Dashboard';
+
+// Player Components
 import PlayerDashboard from './components/player/Dashboard';
+
+// Referee Components
 import RefereeDashboard from './components/referee/Dashboard';
 
 // Other Components
@@ -71,6 +75,7 @@ function App() {
               </ProtectedRoute>
             } 
           />
+
           <Route 
             path="/player/*" 
             element={

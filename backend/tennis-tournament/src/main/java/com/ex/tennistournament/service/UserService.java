@@ -2,6 +2,7 @@ package com.ex.tennistournament.service;
 
 import com.ex.tennistournament.dto.JwtResponseDto;
 import com.ex.tennistournament.dto.LoginDto;
+import com.ex.tennistournament.dto.PasswordUpdateDto;
 import com.ex.tennistournament.dto.UserDto;
 import com.ex.tennistournament.dto.UserRegistrationDto;
 import com.ex.tennistournament.exception.ResourceNotFoundException;
@@ -9,7 +10,9 @@ import com.ex.tennistournament.model.User;
 import com.ex.tennistournament.repository.UserRepository;
 import com.ex.tennistournament.security.JwtUtils;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -71,6 +74,8 @@ public class UserService {
                 .username(userDetails.getUsername())
                 .email(userDetails.getEmail())
                 .userType(userDetails.getUserType())
+                .firstName(userDetails.getFirstName())
+                .lastName(userDetails.getLastName())
                 .build();
     }
 
@@ -97,6 +102,15 @@ public class UserService {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
 
+        // Security check: ensure the current user can only update their own profile
+        // unless they are an ADMIN
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        User currentUser = (User) authentication.getPrincipal();
+
+        if (!currentUser.getId().equals(id) && currentUser.getUserType() != User.UserType.ADMIN) {
+            throw new AccessDeniedException("You can only update your own profile.");
+        }
+
         // Check if username is already taken by another user
         if (!user.getUsername().equals(userDto.getUsername()) &&
                 userRepository.existsByUsername(userDto.getUsername())) {
@@ -113,9 +127,48 @@ public class UserService {
         user.setEmail(userDto.getEmail());
         user.setFirstName(userDto.getFirstName());
         user.setLastName(userDto.getLastName());
-        // We don't update password or user type here
+
+        // Only administrators can change user roles
+        if (currentUser.getUserType() == User.UserType.ADMIN && userDto.getUserType() != null) {
+            user.setUserType(userDto.getUserType());
+        }
+
+        // Update password if provided
+        String password = userDto.getPassword();
+        if (password != null && !password.isEmpty()) {
+            user.setPassword(passwordEncoder.encode(password));
+        }
 
         User updatedUser = userRepository.save(user);
+        return mapUserToDto(updatedUser);
+    }
+
+    @Transactional
+    public UserDto updatePassword(Long id, PasswordUpdateDto passwordDto) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
+
+        // Security check: ensure users can only change their own password
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        User currentUser = (User) authentication.getPrincipal();
+
+        if (!currentUser.getId().equals(id)) {
+            throw new AccessDeniedException("You can only change your own password.");
+        }
+
+        // Verify current password
+        try {
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(user.getUsername(), passwordDto.getCurrentPassword())
+            );
+        } catch (BadCredentialsException e) {
+            throw new IllegalArgumentException("Current password is incorrect");
+        }
+
+        // Update password
+        user.setPassword(passwordEncoder.encode(passwordDto.getNewPassword()));
+        User updatedUser = userRepository.save(user);
+
         return mapUserToDto(updatedUser);
     }
 
@@ -135,6 +188,7 @@ public class UserService {
                 .firstName(user.getFirstName())
                 .lastName(user.getLastName())
                 .userType(user.getUserType())
+                // Do not include password in the response
                 .build();
     }
 }

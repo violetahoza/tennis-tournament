@@ -1,5 +1,6 @@
 package com.ex.tennistournament.controller;
 
+import com.ex.tennistournament.dto.PasswordUpdateDto;
 import com.ex.tennistournament.dto.UserDto;
 import com.ex.tennistournament.model.User;
 import com.ex.tennistournament.service.UserService;
@@ -38,6 +39,11 @@ public class UserController {
     @PutMapping("/{id}")
     public ResponseEntity<UserDto> updateUser(@PathVariable("id") Long id, @Valid @RequestBody UserDto userDto) {
         return ResponseEntity.ok(userService.updateUser(id, userDto));
+    }
+
+    @PutMapping("/{id}/password")
+    public ResponseEntity<UserDto> updatePassword(@PathVariable("id") Long id, @Valid @RequestBody PasswordUpdateDto passwordDto) {
+        return ResponseEntity.ok(userService.updatePassword(id, passwordDto));
     }
 
     @DeleteMapping("/{id}")

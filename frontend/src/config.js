@@ -15,6 +15,7 @@ export const API_ENDPOINTS = {
     GET_BY_ID: (id) => `${API_BASE_URL}/api/users/${id}`,
     GET_BY_TYPE: (type) => `${API_BASE_URL}/api/users/type/${type}`,
     UPDATE: (id) => `${API_BASE_URL}/api/users/${id}`,
+    UPDATE_PASSWORD: (id) => `${API_BASE_URL}/api/users/${id}/password`,
     DELETE: (id) => `${API_BASE_URL}/api/users/${id}`,
   },
   

@@ -31,18 +31,49 @@ const TournamentDetails = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [validationErrors, setValidationErrors] = useState({});
 
   useEffect(() => {
     if (!isNewTournament) {
       fetchTournamentData();
+    } else {
+      // For new tournaments, pre-populate dates with reasonable defaults
+      const today = new Date();
+      const startDate = new Date(today);
+      startDate.setDate(today.getDate() + 30); // Default: Start in 30 days
+      
+      const endDate = new Date(startDate);
+      endDate.setDate(startDate.getDate() + 7); // Default: 1 week duration
+      
+      const regDeadline = new Date(today);
+      regDeadline.setDate(today.getDate() + 20); // Default: Registration closes 10 days before start
+      
+      setTournament({
+        ...tournament,
+        startDate: startDate.toISOString().split('T')[0],
+        endDate: endDate.toISOString().split('T')[0],
+        registrationDeadline: regDeadline.toISOString().split('T')[0],
+      });
+      
+      // Clear error for new tournament (in case it was previously set)
+      setError(null);
     }
-  }, [id, isNewTournament]);
+  }, [id]);
 
   const fetchTournamentData = async () => {
     setLoading(true);
     try {
       const tournamentRes = await axios.get(API_ENDPOINTS.TOURNAMENTS.GET_BY_ID(id));
-      setTournament(tournamentRes.data);
+      
+      // Format dates for input fields
+      const tournamentData = {
+        ...tournamentRes.data,
+        startDate: formatDate(tournamentRes.data.startDate),
+        endDate: formatDate(tournamentRes.data.endDate),
+        registrationDeadline: formatDate(tournamentRes.data.registrationDeadline)
+      };
+      
+      setTournament(tournamentData);
       
       // Fetch registrations
       try {
@@ -71,19 +102,68 @@ const TournamentDetails = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setTournament({ ...tournament, [name]: value });
+    
+    // Clear validation error for this field if it exists
+    if (validationErrors[name]) {
+      setValidationErrors(prev => ({
+        ...prev,
+        [name]: null
+      }));
+    }
+  };
+
+  const validateForm = () => {
+    const errors = {};
+    
+    // Required fields
+    if (!tournament.name || tournament.name.trim() === '') {
+      errors.name = 'Tournament name is required';
+    }
+    
+    if (!tournament.location || tournament.location.trim() === '') {
+      errors.location = 'Location is required';
+    }
+    
+    if (!tournament.startDate) {
+      errors.startDate = 'Start date is required';
+    }
+    
+    if (!tournament.endDate) {
+      errors.endDate = 'End date is required';
+    }
+    
+    if (!tournament.registrationDeadline) {
+      errors.registrationDeadline = 'Registration deadline is required';
+    }
+    
+    if (!tournament.maxParticipants) {
+      errors.maxParticipants = 'Maximum participants is required';
+    } else if (tournament.maxParticipants < 2) {
+      errors.maxParticipants = 'Maximum participants must be at least 2';
+    }
+    
+    // Date validations
+    if (tournament.startDate && tournament.endDate) {
+      if (new Date(tournament.endDate) < new Date(tournament.startDate)) {
+        errors.endDate = 'End date cannot be before start date';
+      }
+    }
+    
+    if (tournament.startDate && tournament.registrationDeadline) {
+      if (new Date(tournament.registrationDeadline) > new Date(tournament.startDate)) {
+        errors.registrationDeadline = 'Registration deadline cannot be after start date';
+      }
+    }
+    
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Validation
-    if (new Date(tournament.startDate) > new Date(tournament.endDate)) {
-      setError('Start date must be before end date');
-      return;
-    }
-
-    if (new Date(tournament.registrationDeadline) > new Date(tournament.startDate)) {
-      setError('Registration deadline must be before start date');
+    // Validate form
+    if (!validateForm()) {
       return;
     }
     
@@ -92,11 +172,25 @@ const TournamentDetails = () => {
     setSuccess(null);
     
     try {
+      // Prepare the data for the API - ensure dates are in proper format
+      const tournamentData = {
+        ...tournament,
+        // Ensure maxParticipants is a number
+        maxParticipants: parseInt(tournament.maxParticipants, 10)
+      };
+      
+      // Remove id field if creating a new tournament
+      if (isNewTournament) {
+        delete tournamentData.id;
+      }
+      
+      console.log("Sending tournament data:", tournamentData);
+      
       let response;
       
       // Create new tournament or update existing tournament
       if (isNewTournament) {
-        response = await axios.post(API_ENDPOINTS.TOURNAMENTS.CREATE, tournament);
+        response = await axios.post(API_ENDPOINTS.TOURNAMENTS.CREATE, tournamentData);
         setSuccess('Tournament created successfully!');
         
         // Redirect to the tournament list
@@ -104,14 +198,51 @@ const TournamentDetails = () => {
           navigate('/admin/tournaments');
         }, 1500);
       } else {
-        response = await axios.put(API_ENDPOINTS.TOURNAMENTS.UPDATE(id), tournament);
-        setTournament(response.data);
+        response = await axios.put(API_ENDPOINTS.TOURNAMENTS.UPDATE(id), tournamentData);
+        
+        // Update local state with the response data
+        const updatedTournament = {
+          ...response.data,
+          startDate: formatDate(response.data.startDate),
+          endDate: formatDate(response.data.endDate),
+          registrationDeadline: formatDate(response.data.registrationDeadline)
+        };
+        
+        setTournament(updatedTournament);
         setSuccess('Tournament updated successfully!');
       }
       
     } catch (err) {
-      setError(err.response?.data?.message || 'Error saving tournament. Please try again.');
-      console.error(err);
+      console.error("Error saving tournament:", err);
+      console.error("Response:", err.response);
+      
+      // Handle validation errors from server
+      if (err.response?.data?.errors) {
+        const serverErrors = {};
+        err.response.data.errors.forEach(errorMsg => {
+          if (errorMsg.toLowerCase().includes('name')) {
+            serverErrors.name = errorMsg;
+          } else if (errorMsg.toLowerCase().includes('location')) {
+            serverErrors.location = errorMsg;
+          } else if (errorMsg.toLowerCase().includes('start date')) {
+            serverErrors.startDate = errorMsg;
+          } else if (errorMsg.toLowerCase().includes('end date')) {
+            serverErrors.endDate = errorMsg;
+          } else if (errorMsg.toLowerCase().includes('registration deadline')) {
+            serverErrors.registrationDeadline = errorMsg;
+          } else if (errorMsg.toLowerCase().includes('maximum participants')) {
+            serverErrors.maxParticipants = errorMsg;
+          }
+        });
+        
+        if (Object.keys(serverErrors).length > 0) {
+          setValidationErrors(serverErrors);
+        } else {
+          setError(err.response?.data?.message || 'Error saving tournament. Please try again.');
+        }
+      } else {
+        setError(err.response?.data?.message || 'Error saving tournament. Please try again.');
+      }
     } finally {
       setSaving(false);
     }
@@ -127,11 +258,26 @@ const TournamentDetails = () => {
 
   const formatDate = (dateString) => {
     if (!dateString) return '';
-    // Convert to YYYY-MM-DD for input fields
-    if (dateString.includes('T')) {
-      return dateString.split('T')[0];
+    
+    // Handle various date formats
+    try {
+      // If it's already in YYYY-MM-DD format, return it
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+        return dateString;
+      }
+      
+      // If it includes time (YYYY-MM-DDTHH:MM:SS), extract just the date
+      if (dateString.includes('T')) {
+        return dateString.split('T')[0];
+      }
+      
+      // Otherwise, try to parse and format it
+      const date = new Date(dateString);
+      return date.toISOString().split('T')[0];
+    } catch (e) {
+      console.error("Error formatting date:", e);
+      return dateString; // Return original if parsing fails
     }
-    return dateString;
   };
 
   const getStatusColor = (status) => {
@@ -191,13 +337,14 @@ const TournamentDetails = () => {
           Back
         </Button>
         <Typography variant="h5">
-          {isNewTournament ? 'Add New Tournament' : `Edit Tournament: ${tournament.name}`}
+          {isNewTournament ? 'Create New Tournament' : `Edit Tournament: ${tournament.name}`}
         </Typography>
       </Box>
 
       {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
       {success && <Alert severity="success" sx={{ mb: 3 }}>{success}</Alert>}
 
+      {/* Only show tabs when editing an existing tournament, not when creating a new one */}
       {!isNewTournament && (
         <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
           <Tabs value={tabValue} onChange={handleTabChange} aria-label="tournament details tabs">
@@ -208,7 +355,8 @@ const TournamentDetails = () => {
         </Box>
       )}
 
-      {(tabValue === 0 || isNewTournament) && (
+      {/* Show tournament form for new tournaments or when on the details tab */}
+      {(isNewTournament || tabValue === 0) && (
         <form onSubmit={handleSubmit}>
           <Grid container spacing={3}>
             <Grid item xs={12}>
@@ -218,6 +366,8 @@ const TournamentDetails = () => {
                 fullWidth
                 value={tournament.name}
                 onChange={handleChange}
+                error={Boolean(validationErrors.name)}
+                helperText={validationErrors.name || ''}
                 required
               />
             </Grid>
@@ -239,6 +389,8 @@ const TournamentDetails = () => {
                 fullWidth
                 value={tournament.location}
                 onChange={handleChange}
+                error={Boolean(validationErrors.location)}
+                helperText={validationErrors.location || ''}
                 required
               />
             </Grid>
@@ -248,11 +400,13 @@ const TournamentDetails = () => {
                 label="Start Date"
                 type="date"
                 fullWidth
-                value={formatDate(tournament.startDate)}
+                value={tournament.startDate}
                 onChange={handleChange}
                 InputLabelProps={{
                   shrink: true,
                 }}
+                error={Boolean(validationErrors.startDate)}
+                helperText={validationErrors.startDate || ''}
                 required
               />
             </Grid>
@@ -262,11 +416,13 @@ const TournamentDetails = () => {
                 label="End Date"
                 type="date"
                 fullWidth
-                value={formatDate(tournament.endDate)}
+                value={tournament.endDate}
                 onChange={handleChange}
                 InputLabelProps={{
                   shrink: true,
                 }}
+                error={Boolean(validationErrors.endDate)}
+                helperText={validationErrors.endDate || ''}
                 required
               />
             </Grid>
@@ -276,11 +432,13 @@ const TournamentDetails = () => {
                 label="Registration Deadline"
                 type="date"
                 fullWidth
-                value={formatDate(tournament.registrationDeadline)}
+                value={tournament.registrationDeadline}
                 onChange={handleChange}
                 InputLabelProps={{
                   shrink: true,
                 }}
+                error={Boolean(validationErrors.registrationDeadline)}
+                helperText={validationErrors.registrationDeadline || ''}
                 required
               />
             </Grid>
@@ -293,6 +451,8 @@ const TournamentDetails = () => {
                 value={tournament.maxParticipants}
                 onChange={handleChange}
                 inputProps={{ min: 2 }}
+                error={Boolean(validationErrors.maxParticipants)}
+                helperText={validationErrors.maxParticipants || ''}
                 required
               />
             </Grid>
@@ -313,7 +473,8 @@ const TournamentDetails = () => {
         </form>
       )}
 
-      {tabValue === 1 && !isNewTournament && (
+      {/* Only show these tabs when editing an existing tournament */}
+      {!isNewTournament && tabValue === 1 && (
         <Card>
           <CardContent>
             <Typography variant="h6" gutterBottom>Player Registrations</Typography>
@@ -368,7 +529,7 @@ const TournamentDetails = () => {
         </Card>
       )}
 
-      {tabValue === 2 && !isNewTournament && (
+      {!isNewTournament && tabValue === 2 && (
         <Card>
           <CardContent>
             <Typography variant="h6" gutterBottom>Tournament Matches</Typography>

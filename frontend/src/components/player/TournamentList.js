@@ -78,8 +78,13 @@ const TournamentList = () => {
       tournament.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       tournament.location.toLowerCase().includes(searchTerm.toLowerCase());
     
-    // Check if we need to filter by status
-    const matchesStatus = statusFilter === '' || (tournament.status === statusFilter);
+    // Filter by registration status
+    let matchesStatus = true;
+    if (statusFilter === 'OPEN') {
+      matchesStatus = tournament.registrationOpen === true;
+    } else if (statusFilter === 'CLOSED') {
+      matchesStatus = tournament.registrationOpen === false;
+    }
     
     return matchesSearch && matchesStatus;
   });
