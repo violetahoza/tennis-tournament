@@ -13,7 +13,7 @@ const MatchDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const isNewMatch = id === 'new';
+  const isNewMatch = id === 'new' || id === undefined;
   const preselectedTournamentId = location.state?.tournamentId;
 
   const [match, setMatch] = useState({

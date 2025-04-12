@@ -11,7 +11,7 @@ import { API_ENDPOINTS } from '../../config';
 const UserDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const isNewUser = id === 'new';
+  const isNewUser = id === 'new' || id === undefined;
 
   const [user, setUser] = useState({
     username: '',

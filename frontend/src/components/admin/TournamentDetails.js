@@ -11,7 +11,7 @@ import { API_ENDPOINTS } from '../../config';
 const TournamentDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const isNewTournament = id === 'new';
+  const isNewTournament = id === 'new' || id === undefined;
 
   const [tournament, setTournament] = useState({
     name: '',
