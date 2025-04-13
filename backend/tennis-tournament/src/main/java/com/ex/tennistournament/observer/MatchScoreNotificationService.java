@@ -108,8 +108,10 @@ public class MatchScoreNotificationService implements Observer {
                         event.getSetNumber(), player1Name, player2Name);
 
             case "Match completed":
-                return String.format("Match winner: %s defeats %s",
-                        determineClearWinner(event), player2Name.equals(determineClearWinner(event)) ? player1Name : player2Name);
+                // Get the actual winner from the event data
+                String winner = event.getWinnerName();
+                String loser = winner.equals(player1Name) ? player2Name : player1Name;
+                return String.format("Match completed: %s defeats %s", winner, loser);
 
             default:
                 return String.format("Match update: %s vs %s", player1Name, player2Name);

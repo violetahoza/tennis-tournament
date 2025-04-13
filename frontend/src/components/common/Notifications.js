@@ -1,9 +1,20 @@
 import React, { useState, useEffect, useContext, useCallback } from 'react';
 import { 
   Badge, IconButton, Popover, List, ListItem, ListItemText, 
-  Typography, Divider, Box, Button, CircularProgress 
+  Typography, Divider, Box, Button, CircularProgress, 
+  ListItemIcon, Avatar, Tooltip
 } from '@mui/material';
-import { Notifications as NotificationsIcon } from '@mui/icons-material';
+import { 
+  Notifications as NotificationsIcon, 
+  Scoreboard as ScoreboardIcon,
+  EmojiEvents as TrophyIcon,
+  Sports as SportsIcon,
+  Assignment as AssignmentIcon,
+  EventAvailable as EventIcon,
+  Cancel as CancelIcon,
+  HowToReg as ApprovalIcon,
+  RemoveCircle as RejectionIcon
+} from '@mui/icons-material';
 import axios from 'axios';
 import { AuthContext } from '../../context/AuthContext';
 import { API_ENDPOINTS } from '../../config';
@@ -57,26 +68,26 @@ const Notifications = () => {
     socket.onmessage = (event) => {
       const newNotification = JSON.parse(event.data);
       setNotifications(prev => {
-          // More thorough duplicate check
-          const isDuplicate = prev.some(n => 
-              n.id === newNotification.id || 
-              (n.type === newNotification.type && 
-               n.message === newNotification.message && 
-               Math.abs(new Date(n.timestamp) - new Date(newNotification.timestamp)) < 5000)
+        // More thorough duplicate check
+        const isDuplicate = prev.some(n => 
+          n.id === newNotification.id || 
+          (n.type === newNotification.type && 
+           n.message === newNotification.message && 
+           Math.abs(new Date(n.timestamp) - new Date(newNotification.timestamp)) < 5000)
+        );
+        
+        if (!isDuplicate) {
+          return [newNotification, ...prev].sort((a, b) => 
+            new Date(b.timestamp) - new Date(a.timestamp)
           );
-          
-          if (!isDuplicate) {
-              return [newNotification, ...prev].sort((a, b) => 
-                  new Date(b.timestamp) - new Date(a.timestamp)
-              );
-          }
-          return prev;
+        }
+        return prev;
       });
       
       if (!newNotification.read) {
-          setUnreadCount(prev => prev + 1);
+        setUnreadCount(prev => prev + 1);
       }
-  };
+    };
 
     return () => socket.close();
   }, [auth.isAuthenticated, auth.user]);
@@ -185,17 +196,31 @@ const Notifications = () => {
   const getNotificationIcon = (type) => {
     switch (type) {
       case 'MATCH_SCORE':
-        return '🎾';
+      case 'MATCH_SCORE_UPDATED':
+      case 'MATCH_SCORE_ADDED':
+        return <ScoreboardIcon color="primary" />;
       case 'MATCH_COMPLETED':
-        return '🏆';
-      case 'MATCH_UPDATE':
-        return '🎯';
-      case 'TOURNAMENT_REGISTRATION':
-        return '📝';
+        return <TrophyIcon color="success" />;
       case 'MATCH_SCHEDULED':
-        return '📅';
+        return <EventIcon color="info" />;
+      case 'MATCH_CANCELLED':
+        return <CancelIcon color="error" />;
+      case 'MATCH_ASSIGNMENT':
+        return <AssignmentIcon color="secondary" />;
+      case 'MATCH_STATUS_CHANGE':
+        return <SportsIcon color="warning" />;
+      case 'TOURNAMENT_REGISTRATION':
+        return <EventIcon color="info" />;
+      case 'REGISTRATION_APPROVED':
+        return <ApprovalIcon color="success" />;
+      case 'REGISTRATION_REJECTED':
+        return <RejectionIcon color="error" />;
+      case 'REGISTRATION_WAITLISTED':
+        return <AssignmentIcon color="warning" />;
+      case 'REGISTRATION_CANCELLED':
+        return <CancelIcon color="error" />;
       default:
-        return '📣';
+        return <NotificationsIcon color="action" />;
     }
   };
   
@@ -203,37 +228,52 @@ const Notifications = () => {
   const getNotificationTitle = (type) => {
     switch (type) {
       case 'MATCH_SCORE':
+      case 'MATCH_SCORE_UPDATED':
+      case 'MATCH_SCORE_ADDED':
         return 'Score Update';
       case 'MATCH_COMPLETED':
         return 'Match Completed';
-      case 'MATCH_UPDATE':
+      case 'MATCH_STATUS_CHANGE':
         return 'Match Update';
-      case 'TOURNAMENT_REGISTRATION':
-        return 'Registration Update';
       case 'MATCH_SCHEDULED':
         return 'New Match Scheduled';
+      case 'MATCH_CANCELLED':
+        return 'Match Cancelled';
+      case 'MATCH_ASSIGNMENT':
+        return 'Match Assignment';
+      case 'TOURNAMENT_REGISTRATION':
+        return 'Tournament Registration';
+      case 'REGISTRATION_APPROVED':
+        return 'Registration Approved';
+      case 'REGISTRATION_REJECTED':
+        return 'Registration Rejected';
+      case 'REGISTRATION_WAITLISTED':
+        return 'Registration Waitlisted';
+      case 'REGISTRATION_CANCELLED':
+        return 'Registration Cancelled';
+      case 'REGISTRATION_STATUS_CHANGE':
+        return 'Registration Status Change';
       default:
         return 'Notification';
     }
   };
   
-  // For testing - sends a test notification
-  const sendTestNotification = async () => {
-    try {
-      await axios.post(API_ENDPOINTS.NOTIFICATIONS.TEST, {
-        userId: auth.user.id,
-        type: 'MATCH_SCORE',
-        message: 'This is a test notification',
-        timestamp: new Date().toISOString(),
-        read: false
-      });
-      
-      // Refresh notifications after sending a test
-      setTimeout(() => {
-        fetchNotifications();
-      }, 1000);
-    } catch (error) {
-      console.error('Error sending test notification:', error);
+  // Get background color based on notification type for visual distinction
+  const getNotificationColor = (type) => {
+    switch (type) {
+      case 'MATCH_COMPLETED':
+      case 'REGISTRATION_APPROVED':
+        return '#e6f7e9'; // Light green
+      case 'MATCH_CANCELLED':
+      case 'REGISTRATION_REJECTED':
+      case 'REGISTRATION_CANCELLED':
+        return '#ffebee'; // Light red
+      case 'MATCH_ASSIGNMENT':
+        return '#e3f2fd'; // Light blue
+      case 'REGISTRATION_WAITLISTED':
+        return '#fff8e1'; // Light amber
+      default:
+        return 'transparent';
     }
   };
   

@@ -8,7 +8,6 @@ import lombok.RequiredArgsConstructor;
  * Used in the Observer pattern to notify interested parties about score changes.
  */
 @Getter
-@RequiredArgsConstructor
 public class MatchScoreEvent {
     private final Long matchId;
     private final Long setNumber;
@@ -17,6 +16,7 @@ public class MatchScoreEvent {
     private final String player1Name;
     private final String player2Name;
     private final String type;
+    private final String winnerName;
 
     public MatchScoreEvent(
             Long matchId,
@@ -24,8 +24,17 @@ public class MatchScoreEvent {
             Integer player1Score,
             Integer player2Score,
             String player1Name,
-            String player2Name
+            String player2Name,
+            String type,
+            String winnerName
     ) {
-        this(matchId, setNumber, player1Score, player2Score, player1Name, player2Name, "MATCH_SCORE");
+        this.matchId = matchId;
+        this.setNumber = setNumber;
+        this.player1Score = player1Score;
+        this.player2Score = player2Score;
+        this.player1Name = player1Name;
+        this.player2Name = player2Name;
+        this.type = type;
+        this.winnerName = winnerName;
     }
 }

@@ -13,17 +13,6 @@ import java.util.List;
 /**
  * REST Controller for managing match scores.
  * Handles all score-related operations for tennis matches.
- *
- * Security:
- * - Score creation/modification limited to REFEREE role
- * - Public access for score retrieval operations
- * - Uses @PreAuthorize for role-based authorization
- *
- * Features:
- * - Score management for individual matches
- * - Score retrieval by match or score ID
- * - Match completion handling
- * - Input validation using @Valid
  */
 @RestController
 @RequestMapping("/api/match-scores")
@@ -58,7 +47,7 @@ public class MatchScoreController {
      * @return Created score
      */
     @PostMapping
-    @PreAuthorize("hasAuthority('REFEREE')")
+    @PreAuthorize("hasAnyAuthority('REFEREE', 'ADMIN')")
     public ResponseEntity<MatchScoreDto> createScore(@Valid @RequestBody MatchScoreDto scoreDto) {
         return ResponseEntity.ok(matchScoreService.createScore(scoreDto));
     }
@@ -70,7 +59,7 @@ public class MatchScoreController {
      * @return Updated score
      */
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('REFEREE')")
+    @PreAuthorize("hasAnyAuthority('REFEREE', 'ADMIN')")
     public ResponseEntity<MatchScoreDto> updateScore(@PathVariable("id") Long id, @Valid @RequestBody MatchScoreDto scoreDto) {
         return ResponseEntity.ok(matchScoreService.updateScore(id, scoreDto));
     }
@@ -81,7 +70,7 @@ public class MatchScoreController {
      * @return No content on success
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('REFEREE')")
+    @PreAuthorize("hasAnyAuthority('REFEREE', 'ADMIN')")
     public ResponseEntity<Void> deleteScore(@PathVariable("id") Long id) {
         matchScoreService.deleteScore(id);
         return ResponseEntity.noContent().build();
@@ -94,7 +83,7 @@ public class MatchScoreController {
      * @return No content on success
      */
     @PostMapping("/match/{matchId}/complete")
-    @PreAuthorize("hasAuthority('REFEREE')")
+    @PreAuthorize("hasAnyAuthority('REFEREE', 'ADMIN')")
     public ResponseEntity<Void> completeMatch(@PathVariable("matchId") Long matchId) {
         matchScoreService.completeMatch(matchId);
         return ResponseEntity.noContent().build();

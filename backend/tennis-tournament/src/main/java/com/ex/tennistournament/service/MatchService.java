@@ -30,28 +30,6 @@ import java.util.stream.Collectors;
 /**
  * Service class for managing tennis matches in the tournament system.
  * Handles CRUD operations for matches and enforces business rules.
- *
- * Key responsibilities:
- * - Match management (create, read, update, delete)
- * - Match validation and business rules
- * - Player registration verification
- * - Tournament scheduling validation
- * - Match status tracking
- * - Real-time notifications
- * - Score tracking and winner determination
- *
- * Security features:
- * - Validates player registrations
- * - Enforces match status rules
- * - Validates tournament dates
- *
- * Dependencies:
- * - MatchRepository: For match persistence
- * - MatchScoreRepository: For match scores
- * - TournamentRepository: For tournament data
- * - UserRepository: For player/referee data
- * - TournamentRegistrationRepository: For registration verification
- * - NotificationService: For real-time notifications
  */
 @Service
 @RequiredArgsConstructor
@@ -161,8 +139,11 @@ public class MatchService {
 
             Match savedMatch = matchRepository.save(match);
 
-            // Send notifications to players
+            // Send notifications to all parties
             sendMatchCreatedNotifications(savedMatch);
+
+            // Send notification to referee about assignment
+            sendRefereeAssignmentNotification(savedMatch);
 
             return mapToDto(savedMatch);
         } catch (IllegalStateException e) {
@@ -195,6 +176,9 @@ public class MatchService {
         User referee = userRepository.findById(matchDto.getRefereeId())
                 .orElseThrow(() -> new ResourceNotFoundException("Referee not found with id: " + matchDto.getRefereeId()));
 
+        // Check if referee has changed - we need this to send a notification if necessary
+        boolean refereeChanged = !existingMatch.getReferee().getId().equals(referee.getId());
+
         // Validate that players are registered for the tournament
         validatePlayerRegistration(player1, tournament);
         validatePlayerRegistration(player2, tournament);
@@ -225,6 +209,11 @@ public class MatchService {
             // Send notifications if status changed
             if (existingMatch.getStatus() != savedMatch.getStatus()) {
                 sendStatusChangeNotification(savedMatch, existingMatch.getStatus());
+            }
+
+            // Send notification to referee if they've been newly assigned
+            if (refereeChanged) {
+                sendRefereeAssignmentNotification(savedMatch);
             }
 
             return mapToDto(savedMatch);
@@ -260,6 +249,9 @@ public class MatchService {
                 }
 
                 existingMatch.setReferee(newReferee);
+
+                // Send notification to the new referee
+                sendRefereeAssignmentNotification(existingMatch);
             }
 
             // Allow changing court number
@@ -329,6 +321,32 @@ public class MatchService {
         notificationService.sendNotification(notification2);
     }
 
+    /**
+     * Sends notification to a referee when they are assigned to a match
+     */
+    private void sendRefereeAssignmentNotification(Match match) {
+        String formattedDateTime = match.getScheduledTime()
+                .format(DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm"));
+
+        String message = String.format(
+                "You have been assigned as referee for the match: %s vs %s at %s on court %d",
+                match.getPlayer1().getFirstName() + " " + match.getPlayer1().getLastName(),
+                match.getPlayer2().getFirstName() + " " + match.getPlayer2().getLastName(),
+                formattedDateTime,
+                match.getCourtNumber()
+        );
+
+        NotificationDto notification = NotificationDto.builder()
+                .userId(match.getReferee().getId())
+                .type("MATCH_ASSIGNMENT")
+                .message(message)
+                .timestamp(LocalDateTime.now())
+                .read(false)
+                .build();
+
+        notificationService.sendNotification(notification);
+    }
+
     private void sendStatusChangeNotification(Match match, Match.MatchStatus previousStatus) {
         String message = "Match status changed from " + previousStatus + " to " + match.getStatus();
 
@@ -347,6 +365,14 @@ public class MatchService {
         notification2.setMessage(message);
         notification2.setTimestamp(LocalDateTime.now());
         notificationService.sendNotification(notification2);
+
+        // Referee notification
+        NotificationDto notificationRef = new NotificationDto();
+        notificationRef.setUserId(match.getReferee().getId());
+        notificationRef.setType("MATCH_STATUS_CHANGE");
+        notificationRef.setMessage(message);
+        notificationRef.setTimestamp(LocalDateTime.now());
+        notificationService.sendNotification(notificationRef);
     }
 
     private void sendMatchCancelledNotification(Match match) {
@@ -369,6 +395,16 @@ public class MatchService {
         notification2.setMessage(message);
         notification2.setTimestamp(LocalDateTime.now());
         notificationService.sendNotification(notification2);
+
+        // Referee notification
+        NotificationDto notificationRef = new NotificationDto();
+        notificationRef.setUserId(match.getReferee().getId());
+        notificationRef.setType("MATCH_CANCELLED");
+        notificationRef.setMessage("Match you were assigned to referee has been cancelled: " +
+                match.getPlayer1().getFirstName() + " " + match.getPlayer1().getLastName() + " vs " +
+                match.getPlayer2().getFirstName() + " " + match.getPlayer2().getLastName());
+        notificationRef.setTimestamp(LocalDateTime.now());
+        notificationService.sendNotification(notificationRef);
     }
 
     private MatchDto mapToDto(Match match) {

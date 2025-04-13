@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
@@ -10,10 +10,12 @@ import {
 import { ArrowBack as ArrowBackIcon, Add as AddIcon, Delete as DeleteIcon, 
          Save as SaveIcon, EmojiEvents as WinnerIcon } from '@mui/icons-material';
 import { API_ENDPOINTS } from '../../config';
+import { AuthContext } from '../../context/AuthContext';
 
 const MatchScoring = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { auth, logout } = useContext(AuthContext);
   
   const [match, setMatch] = useState(null);
   const [scores, setScores] = useState([]);
@@ -35,6 +37,9 @@ const MatchScoring = () => {
   const [openSuccessDialog, setOpenSuccessDialog] = useState(false);
   const [dialogMessage, setDialogMessage] = useState('');
   
+  // Score summary state for the completion dialog
+  const [scoreSummary, setScoreSummary] = useState({ player1Sets: 0, player2Sets: 0, winner: null });
+  
   // Snackbar states
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
@@ -54,6 +59,15 @@ const MatchScoring = () => {
     }
   }, [scores]);
 
+  useEffect(() => {
+    // Set up authorization header for all axios requests
+    if (auth && auth.token) {
+      axios.defaults.headers.common['Authorization'] = `Bearer ${auth.token}`;
+    } else {
+      delete axios.defaults.headers.common['Authorization'];
+    }
+  }, [auth]);
+
   const fetchMatchData = async () => {
     setLoading(true);
     try {
@@ -71,7 +85,9 @@ const MatchScoring = () => {
 
   const fetchMatch = async () => {
     try {
+      console.log(`Fetching match data for match ID: ${id}`);
       const res = await axios.get(API_ENDPOINTS.MATCHES.GET_BY_ID(id));
+      console.log('Match data response:', res.data);
       setMatch(res.data);
       return res.data;
     } catch (err) {
@@ -83,7 +99,9 @@ const MatchScoring = () => {
 
   const fetchScores = async () => {
     try {
+      console.log(`Fetching scores for match ID: ${id}`);
       const res = await axios.get(API_ENDPOINTS.MATCH_SCORES.GET_BY_MATCH(id));
+      console.log('Scores data response:', res.data);
       setScores(res.data);
       return res.data;
     } catch (err) {
@@ -117,18 +135,62 @@ const MatchScoring = () => {
       validateSetScore();
       setSubmitting(true);
       
-      const res = await axios.post(API_ENDPOINTS.MATCH_SCORES.CREATE, newSet);
-      setScores([...scores, res.data]);
-      showSuccessDialog('Set score added successfully!');
-      setOpenSetDialog(false);
+      // Log the request payload for debugging
+      console.log('Creating new set with data:', newSet);
       
-      // If match is SCHEDULED, update to IN_PROGRESS
-      if (match && match.status === 'SCHEDULED') {
-        await updateMatchStatus('IN_PROGRESS');
+      try {
+        const res = await axios.post(API_ENDPOINTS.MATCH_SCORES.CREATE, newSet);
+        console.log('Score creation response:', res);
+        
+        // Only proceed if we have a valid response
+        if (res && res.data) {
+          // Add the new score to the local state
+          setScores([...scores, res.data]);
+          showSuccessDialog('Set score added successfully!');
+          setOpenSetDialog(false);
+          
+          // If match is SCHEDULED, update to IN_PROGRESS
+          if (match && match.status === 'SCHEDULED') {
+            await updateMatchStatus('IN_PROGRESS');
+          }
+          
+          // Refresh the scores to ensure consistency
+          fetchScores();
+        } else {
+          // This should rarely happen, but handle it just in case
+          throw new Error('Invalid response from server');
+        }
+      } catch (err) {
+        console.error('Error response:', err.response);
+        
+        // Check if we actually got an error response from the server
+        if (err.response) {
+          const statusCode = err.response.status;
+          
+          if (statusCode === 403) {
+            showErrorDialog('Access denied. You do not have permission to add scores or your session may have expired. Please try logging out and back in.');
+          } else if (statusCode === 401) {
+            showErrorDialog('Your session has expired. Please log out and log back in to continue scoring the match.');
+            
+            setTimeout(() => {
+              logout();
+              navigate('/login');
+            }, 3000);
+          } else {
+            // For other error codes, show the server's error message if available
+            showErrorDialog(err.response.data?.message || 'Error adding set score. Please try again.');
+          }
+        } else if (err.request) {
+          // The request was made but no response was received
+          showErrorDialog('No response from server. Please check your connection and try again.');
+        } else {
+          // Something happened in setting up the request that triggered an Error
+          showErrorDialog('Error preparing request. Please try again.');
+        }
       }
-    } catch (err) {
-      showErrorDialog(err.message || err.response?.data?.message || 'Error adding set score. Please try again.');
-      console.error(err);
+    } catch (validationError) {
+      // This handles errors from the validateSetScore function
+      showErrorDialog(validationError.message || 'Invalid score values. Please check your input.');
     } finally {
       setSubmitting(false);
     }
@@ -138,11 +200,22 @@ const MatchScoring = () => {
     try {
       setSubmitting(true);
       
-      await axios.delete(API_ENDPOINTS.MATCH_SCORES.DELETE(scoreId));
-      setScores(scores.filter(score => score.id !== scoreId));
-      showSnackbar('Set score deleted successfully!', 'success');
+      console.log(`Deleting score with ID: ${scoreId}`);
+      try {
+        await axios.delete(API_ENDPOINTS.MATCH_SCORES.DELETE(scoreId));
+        setScores(scores.filter(score => score.id !== scoreId));
+        showSnackbar('Set score deleted successfully!', 'success');
+      } catch (err) {
+        console.error('Error deleting score:', err.response || err);
+        
+        if (err.response && (err.response.status === 401 || err.response.status === 403)) {
+          showErrorDialog('Permission denied when deleting score. Your session may have expired.');
+        } else {
+          showErrorDialog(err.response?.data?.message || 'Error deleting set score. Please try again.');
+        }
+      }
     } catch (err) {
-      showErrorDialog(err.response?.data?.message || 'Error deleting set score. Please try again.');
+      showErrorDialog('An unexpected error occurred. Please try again.');
       console.error(err);
     } finally {
       setSubmitting(false);
@@ -150,7 +223,7 @@ const MatchScoring = () => {
   };
 
   const calculateWinner = () => {
-    if (!match || match.status !== 'COMPLETED') return null;
+    if (!match) return null;
     
     let player1Sets = 0;
     let player2Sets = 0;
@@ -163,24 +236,37 @@ const MatchScoring = () => {
       }
     });
     
+    let winnerName = null;
     if (player1Sets > player2Sets) {
-      return {
-        name: match.player1Name,
-        sets: player1Sets,
-        opponentSets: player2Sets
-      };
+      winnerName = match.player1Name;
+    } else if (player2Sets > player1Sets) {
+      winnerName = match.player2Name;
+    }
+    
+    return {
+      player1Sets,
+      player2Sets,
+      winnerName,
+      isTie: player1Sets === player2Sets
+    };
+  };
+
+  const handleOpenCompleteDialog = () => {
+    // Calculate the current score summary
+    const summary = calculateWinner();
+    setScoreSummary(summary);
+    
+    // Only open the dialog if there's a clear winner
+    if (summary.isTie) {
+      showErrorDialog('Cannot complete the match with tied scores. There must be a winner.');
     } else {
-      return {
-        name: match.player2Name,
-        sets: player2Sets,
-        opponentSets: player1Sets
-      };
+      setOpenCompleteDialog(true);
     }
   };
 
   const handleCompleteMatch = async () => {
     try {
-      // Validate that there are scores recorded
+      // Double-check that there are scores recorded and there's a winner
       if (scores.length === 0) {
         showErrorDialog('Cannot complete a match without any scores recorded.');
         setOpenCompleteDialog(false);
@@ -190,7 +276,7 @@ const MatchScoring = () => {
       // Determine if there's a clear winner
       const winner = calculateWinner();
       
-      if (!winner) {
+      if (winner.isTie) {
         showErrorDialog('Cannot complete the match with tied scores. There must be a winner.');
         setOpenCompleteDialog(false);
         return;
@@ -198,21 +284,38 @@ const MatchScoring = () => {
       
       setSubmitting(true);
       
-      await axios.post(API_ENDPOINTS.MATCH_SCORES.COMPLETE_MATCH(id));
-      
-      // Update match object
-      setMatch(prev => ({
-        ...prev,
-        status: 'COMPLETED',
-        winnerId: winner.name === match.player1Name ? match.player1Id : match.player2Id,
-        winnerName: winner.name
-      }));
-      
-      showSuccessDialog(`Match completed successfully! Winner: ${winner.name}`);
-      setOpenCompleteDialog(false);
+      try {
+        console.log('Completing match:', id);
+        const res = await axios.post(API_ENDPOINTS.MATCH_SCORES.COMPLETE_MATCH(id));
+        console.log('Match completion response:', res);
+        
+        // Update match object
+        setMatch(prev => ({
+          ...prev,
+          status: 'COMPLETED'
+        }));
+        
+        showSuccessDialog(`Match completed successfully! Winner: ${winner.winnerName}`);
+        setOpenCompleteDialog(false);
+      } catch (err) {
+        console.error('Complete match error:', err.response || err);
+        
+        if (err.response) {
+          const statusCode = err.response.status;
+          
+          if (statusCode === 403) {
+            showErrorDialog('Access denied. You do not have permission to complete this match or your session may have expired.');
+          } else if (statusCode === 401) {
+            showErrorDialog('Your session has expired. Please log out and log back in.');
+          } else {
+            showErrorDialog(err.response.data?.message || 'Error completing match. Please try again.');
+          }
+        } else {
+          showErrorDialog('Network error or server unavailable. Please check your connection and try again.');
+        }
+      }
     } catch (err) {
-      showErrorDialog(err.response?.data?.message || 'Error completing match. Please try again.');
-      console.error(err);
+      showErrorDialog(err.message || 'Error completing match. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -226,12 +329,24 @@ const MatchScoring = () => {
         status: status
       };
       
+      console.log('Updating match status to:', status);
+      console.log('Request payload:', updatedMatch);
+      
       const res = await axios.put(API_ENDPOINTS.MATCHES.UPDATE(id), updatedMatch);
+      console.log('Update status response:', res);
       
       setMatch(prev => ({ ...prev, status }));
       return res.data;
     } catch (err) {
       console.error('Error updating match status:', err);
+      
+      // Check for authorization errors
+      if (err.response && (err.response.status === 401 || err.response.status === 403)) {
+        showErrorDialog('Permission denied when updating match status. Your session may have expired.');
+      } else {
+        showErrorDialog('Failed to update match status. Please try again.');
+      }
+      
       throw err;
     }
   };
@@ -281,10 +396,6 @@ const MatchScoring = () => {
 
   const handleCloseSetDialog = () => {
     setOpenSetDialog(false);
-  };
-  
-  const handleOpenCompleteDialog = () => {
-    setOpenCompleteDialog(true);
   };
   
   const handleCloseCompleteDialog = () => {
@@ -377,10 +488,10 @@ const MatchScoring = () => {
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          {match.status === 'COMPLETED' && winner && (
+          {match.status === 'COMPLETED' && winner && winner.winnerName && (
             <Chip 
               icon={<WinnerIcon />}
-              label={`Winner: ${winner.name}`}
+              label={`Winner: ${winner.winnerName}`}
               color="success"
               variant="outlined"
             />
@@ -400,9 +511,9 @@ const MatchScoring = () => {
               <Typography variant="body1" gutterBottom><strong>Date & Time:</strong> {formatDateTime(match.scheduledTime)}</Typography>
               <Typography variant="body1" gutterBottom><strong>Court:</strong> {match.courtNumber}</Typography>
               <Typography variant="body1" gutterBottom><strong>Round:</strong> {match.round}</Typography>
-              {match.status === 'COMPLETED' && winner && (
+              {match.status === 'COMPLETED' && winner && winner.winnerName && (
                 <Typography variant="body1" gutterBottom>
-                  <strong>Final Score:</strong> {winner.sets}-{winner.opponentSets}
+                  <strong>Final Score:</strong> {player1Sets}-{player2Sets}
                 </Typography>
               )}
             </Grid>
@@ -420,7 +531,7 @@ const MatchScoring = () => {
                 p: 2, 
                 backgroundColor: '#f5f5f5', 
                 borderRadius: 1,
-                border: match.status === 'COMPLETED' && winner?.name === match.player1Name ? '2px solid #4caf50' : 'none'
+                border: match.status === 'COMPLETED' && winner?.winnerName === match.player1Name ? '2px solid #4caf50' : 'none'
               }}>
                 <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>{match.player1Name}</Typography>
                 {match.status === 'COMPLETED' && (
@@ -436,7 +547,7 @@ const MatchScoring = () => {
                 p: 2, 
                 backgroundColor: '#f5f5f5', 
                 borderRadius: 1,
-                border: match.status === 'COMPLETED' && winner?.name === match.player2Name ? '2px solid #4caf50' : 'none'
+                border: match.status === 'COMPLETED' && winner?.winnerName === match.player2Name ? '2px solid #4caf50' : 'none'
               }}>
                 <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>{match.player2Name}</Typography>
                 {match.status === 'COMPLETED' && (
@@ -605,9 +716,11 @@ const MatchScoring = () => {
               <Typography>
                 {match.player2Name}: {player2Sets} sets
               </Typography>
-              <Typography variant="subtitle1" sx={{ mt: 1, color: '#4caf50' }}>
-                Winner: {player1Sets > player2Sets ? match.player1Name : match.player2Name}
-              </Typography>
+              {!winner.isTie && (
+                <Typography variant="subtitle1" sx={{ mt: 1, color: '#4caf50' }}>
+                  Winner: {winner.winnerName}
+                </Typography>
+              )}
             </Box>
           )}
         </DialogContent>
@@ -617,7 +730,7 @@ const MatchScoring = () => {
             onClick={handleCompleteMatch} 
             variant="contained" 
             color="primary"
-            disabled={submitting}
+            disabled={submitting || winner.isTie}
           >
             {submitting ? 'Processing...' : 'Complete Match'}
           </Button>

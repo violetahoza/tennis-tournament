@@ -2,7 +2,11 @@ package com.ex.tennistournament.observer;
 
 import com.ex.tennistournament.model.Match;
 import com.ex.tennistournament.model.MatchScore;
+import com.ex.tennistournament.repository.MatchScoreRepository;
 import org.springframework.stereotype.Component;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Subject implementation for broadcasting match score events in the tennis tournament system.
@@ -20,6 +24,12 @@ import org.springframework.stereotype.Component;
 @Component
 public class MatchScoreSubject extends AbstractSubject {
 
+    private final MatchScoreRepository matchScoreRepository;
+
+    public MatchScoreSubject(MatchScoreRepository matchScoreRepository) {
+        this.matchScoreRepository = matchScoreRepository;
+    }
+
     /**
      * Notifies observers when a match score is updated.
      * Creates and broadcasts a MATCH_SCORE_UPDATED event with the new score details.
@@ -35,7 +45,8 @@ public class MatchScoreSubject extends AbstractSubject {
                 score.getPlayer2Score(),
                 match.getPlayer1().getFirstName() + " " + match.getPlayer1().getLastName(),
                 match.getPlayer2().getFirstName() + " " + match.getPlayer2().getLastName(),
-                "MATCH_SCORE_UPDATED"
+                "MATCH_SCORE_UPDATED",
+                null // No winner for score updates
         );
 
         notifyObservers("Match score updated", event);
@@ -56,7 +67,8 @@ public class MatchScoreSubject extends AbstractSubject {
                 score.getPlayer2Score(),
                 match.getPlayer1().getFirstName() + " " + match.getPlayer1().getLastName(),
                 match.getPlayer2().getFirstName() + " " + match.getPlayer2().getLastName(),
-                "MATCH_SCORE_ADDED"
+                "MATCH_SCORE_ADDED",
+                null // No winner for score additions
         );
 
         notifyObservers("New match score added", event);
@@ -77,7 +89,8 @@ public class MatchScoreSubject extends AbstractSubject {
                 null,
                 match.getPlayer1().getFirstName() + " " + match.getPlayer1().getLastName(),
                 match.getPlayer2().getFirstName() + " " + match.getPlayer2().getLastName(),
-                "MATCH_SCORE_DELETED"
+                "MATCH_SCORE_DELETED",
+                null // No winner for score deletions
         );
 
         notifyObservers("Match score deleted", event);
@@ -90,6 +103,32 @@ public class MatchScoreSubject extends AbstractSubject {
      * @param match The completed match
      */
     public void matchCompleted(Match match) {
+        // Get scores from repository instead of match entity
+        List<MatchScore> scores = matchScoreRepository.findByMatch(match);
+
+        if (scores == null || scores.isEmpty()) {
+            throw new IllegalStateException("Cannot determine winner - no scores available");
+        }
+
+        int player1Sets = 0;
+        int player2Sets = 0;
+
+        for (MatchScore score : scores) {
+            if (score.getPlayer1Score() > score.getPlayer2Score()) {
+                player1Sets++;
+            } else if (score.getPlayer2Score() > score.getPlayer1Score()) {
+                player2Sets++;
+            }
+        }
+
+        if (player1Sets == player2Sets) {
+            throw new IllegalStateException("Match cannot be completed with tied scores");
+        }
+
+        String winnerName = player1Sets > player2Sets
+                ? match.getPlayer1().getFirstName() + " " + match.getPlayer1().getLastName()
+                : match.getPlayer2().getFirstName() + " " + match.getPlayer2().getLastName();
+
         MatchScoreEvent event = new MatchScoreEvent(
                 match.getId(),
                 null,
@@ -97,9 +136,11 @@ public class MatchScoreSubject extends AbstractSubject {
                 null,
                 match.getPlayer1().getFirstName() + " " + match.getPlayer1().getLastName(),
                 match.getPlayer2().getFirstName() + " " + match.getPlayer2().getLastName(),
-                "MATCH_COMPLETED"
+                "MATCH_COMPLETED",
+                winnerName
         );
 
         notifyObservers("Match completed", event);
     }
+
 }

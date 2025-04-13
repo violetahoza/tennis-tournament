@@ -15,6 +15,7 @@ export const AuthProvider = ({ children }) => {
 
   const setAuthToken = (token) => {
     if (token) {
+      // Set the token as a default header for all axios requests
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       localStorage.setItem('token', token);
       console.log("Token set in axios headers:", token);
@@ -65,7 +66,6 @@ export const AuthProvider = ({ children }) => {
         });
       } else {
         // Parse the JWT to get user information as a fallback
-        // In production, we would make a request to the server to verify the token
         const tokenParts = token.split('.');
         if (tokenParts.length === 3) {
           try {
@@ -113,6 +113,17 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
+  const refreshToken = async () => {
+    try {
+      await loadUser();
+      return auth.token;
+    } catch (error) {
+      console.error("Failed to refresh token:", error);
+      logout();
+      return null;
+    }
+  };
+
   useEffect(() => {
     loadUser();
   }, [loadUser]);
@@ -147,10 +158,11 @@ export const AuthProvider = ({ children }) => {
   return (
     <AuthContext.Provider value={{
       auth,
-      setAuth, // Export setAuth to allow direct updates
+      setAuth, 
       login,
       logout,
       loadUser,
+      refreshToken,
       clearError,
       setAuthError: (error) => setAuth(prev => ({ ...prev, error }))
     }}>

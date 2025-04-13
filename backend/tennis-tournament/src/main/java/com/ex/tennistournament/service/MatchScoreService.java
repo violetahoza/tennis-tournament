@@ -10,6 +10,7 @@ import com.ex.tennistournament.observer.MatchScoreLogger;
 import com.ex.tennistournament.observer.MatchScoreSubject;
 import com.ex.tennistournament.repository.MatchRepository;
 import com.ex.tennistournament.repository.MatchScoreRepository;
+import com.ex.tennistournament.repository.UserRepository;
 import com.ex.tennistournament.websocket.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
@@ -24,29 +25,6 @@ import java.util.stream.Collectors;
 /**
  * Service class for managing tennis match scores and game progression.
  * Handles creation, updates, and completion of match scores while enforcing tennis rules.
- *
- * Key responsibilities:
- * - Managing match scores (create, update, delete)
- * - Validating tennis scoring rules
- * - Tracking match progress and completion
- * - Notifying observers of score changes
- * - Managing match completion logic
- * - Sending notifications to relevant users
- *
- * Security features:
- * - Validates referee permissions
- * - Ensures only authorized users can modify scores
- *
- * Dependencies:
- * - MatchScoreRepository: For score persistence
- * - MatchRepository: For match data access
- * - MatchScoreSubject: For observer pattern implementation
- * - MatchScoreLogger: For logging score changes
- * - NotificationService: For sending real-time notifications
- *
- * Design patterns:
- * - Observer Pattern: For score change notifications
- * - Builder Pattern: For DTO construction
  */
 @Service
 @RequiredArgsConstructor
@@ -57,6 +35,7 @@ public class MatchScoreService {
     private final MatchScoreSubject matchScoreSubject;
     private final MatchScoreLogger matchScoreLogger;
     private final NotificationService notificationService;
+    private final UserRepository userRepository;
 
     public List<MatchScoreDto> getScoresByMatch(Long matchId) {
         Match match = matchRepository.findById(matchId)
@@ -83,12 +62,20 @@ public class MatchScoreService {
             throw new IllegalStateException("Cannot add scores to completed or cancelled matches");
         }
 
-        // Verify current user is the referee of the match
+        // Verify current user is the referee of the match or an admin
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !(authentication.getPrincipal() instanceof User)) {
+            throw new IllegalStateException("Authentication required");
+        }
+
         User currentUser = (User) authentication.getPrincipal();
 
-        if (currentUser.getUserType() == User.UserType.REFEREE && !match.getReferee().getId().equals(currentUser.getId())) {
-            throw new IllegalStateException("Only the assigned referee can update match scores");
+        boolean isReferee = match.getReferee() != null &&
+                match.getReferee().getId().equals(currentUser.getId());
+        boolean isAdmin = currentUser.getUserType() == User.UserType.ADMIN;
+
+        if (!isReferee && !isAdmin) {
+            throw new IllegalStateException("Only the assigned referee or an admin can update match scores");
         }
 
         // Check if set number already exists
@@ -120,10 +107,6 @@ public class MatchScoreService {
 
         // Notify observers about the new score
         matchScoreSubject.scoreAdded(match, savedScore);
-
-//        // Send notifications to players and admin
-//        sendScoreNotifications(match, savedScore, "Score added for set " + savedScore.getSetNumber() +
-//                ": " + savedScore.getPlayer1Score() + "-" + savedScore.getPlayer2Score());
 
         return mapToDto(savedScore);
     }
@@ -159,7 +142,7 @@ public class MatchScoreService {
         // Notify observers about the updated score
         matchScoreSubject.scoreUpdated(match, updatedScore);
 
-//        // Send notifications to players and admin
+//        // Send notifications to players about the updated score
 //        sendScoreNotifications(match, updatedScore, "Score updated for set " + updatedScore.getSetNumber() +
 //                ": " + updatedScore.getPlayer1Score() + "-" + updatedScore.getPlayer2Score());
 
@@ -192,8 +175,8 @@ public class MatchScoreService {
         // Notify observers about the deleted score
         matchScoreSubject.scoreDeleted(match, setNumber);
 
-        // Send notifications to players and admin
-        //sendScoreNotifications(match, null, "Score deleted for set " + setNumber);
+//        // Send notifications to players and admin
+//        sendScoreNotifications(match, null, "Score deleted for set " + setNumber);
     }
 
     @Transactional
@@ -239,17 +222,20 @@ public class MatchScoreService {
         // Notify observers about the completed match
         matchScoreSubject.matchCompleted(match);
 
-//        // Determine winner name
-//        String winnerName = player1Sets > player2Sets ?
-//                match.getPlayer1().getFirstName() + " " + match.getPlayer1().getLastName() :
-//                match.getPlayer2().getFirstName() + " " + match.getPlayer2().getLastName();
-//
-//        // Send notifications to players and admin
+        // Determine winner name
+        String winnerName = player1Sets > player2Sets ?
+                match.getPlayer1().getFirstName() + " " + match.getPlayer1().getLastName() :
+                match.getPlayer2().getFirstName() + " " + match.getPlayer2().getLastName();
+
+//        // Send notifications to players about the completed match
 //        sendMatchCompletionNotifications(match, winnerName);
+
+        // Send notification to admins about the completed match
+        sendMatchCompletionNotificationToAdmins(match, winnerName);
     }
 
     /**
-     * Send notifications to all relevant users (players, referee, admin) about score updates
+     * Send notifications to players about score updates
      */
     private void sendScoreNotifications(Match match, MatchScore score, String message) {
         // Send to player 1
@@ -257,14 +243,10 @@ public class MatchScoreService {
 
         // Send to player 2
         sendNotification(match.getPlayer2().getId(), "MATCH_SCORE", message);
-
-        // Also notify admins (for this example, we'll use user ID 1 for admin, but in a real system you'd query for admin users)
-        // In a real implementation, you would find all admin users and send them notifications
-        // sendNotification(1L, "MATCH_SCORE", "Match " + match.getId() + " " + message);
     }
 
     /**
-     * Send match completion notifications
+     * Send match completion notifications to players and referee
      */
     private void sendMatchCompletionNotifications(Match match, String winnerName) {
         String message = "Match completed! Winner: " + winnerName;
@@ -277,9 +259,28 @@ public class MatchScoreService {
 
         // Send to referee
         sendNotification(match.getReferee().getId(), "MATCH_COMPLETED", message);
+    }
 
-        // Also notify admins
-        sendNotification(1L, "MATCH_COMPLETED", "Match " + match.getId() + " completed. Winner: " + winnerName);
+    /**
+     * Send match completion notifications to all admin users
+     */
+    private void sendMatchCompletionNotificationToAdmins(Match match, String winnerName) {
+        // Find all admin users
+        List<User> admins = userRepository.findByUserType(User.UserType.ADMIN);
+
+        String tournamentName = match.getTournament().getName();
+        String message = String.format(
+                "Match completed in tournament '%s'. %s vs %s. Winner: %s",
+                tournamentName,
+                match.getPlayer1().getFirstName() + " " + match.getPlayer1().getLastName(),
+                match.getPlayer2().getFirstName() + " " + match.getPlayer2().getLastName(),
+                winnerName
+        );
+
+        // Send notification to each admin
+        for (User admin : admins) {
+            sendNotification(admin.getId(), "MATCH_COMPLETED", message);
+        }
     }
 
     /**

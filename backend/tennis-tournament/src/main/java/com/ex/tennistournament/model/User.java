@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 import org.springframework.security.core.GrantedAuthority;
@@ -14,6 +15,8 @@ import org.springframework.security.core.userdetails.UserDetails;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Entity class representing system users with authentication.
@@ -24,23 +27,13 @@ import java.util.Collections;
  * - PLAYER: Regular tournament participant
  * - REFEREE: Match official
  * - ADMIN: System administrator
- *
- * Features:
- * - Authentication and authorization
- * - Basic user information
- * - Automatic timestamp management
- * - Account status tracking
- *
- * Constraints:
- * - Unique username and email
- * - Required personal information
- * - Password encryption (handled by security config)
  */
 @Entity
 @Table(name = "users")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@Slf4j
 public class User implements UserDetails {
 
     @Id
@@ -85,9 +78,23 @@ public class User implements UserDetails {
         PLAYER, REFEREE, ADMIN
     }
 
+    /**
+     * Returns the authorities granted to the user.
+     * This implementation returns a single authority based on the user's type.
+     *
+     * @return a collection of granted authorities
+     */
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return Collections.singletonList(new SimpleGrantedAuthority(userType.name()));
+        Set<GrantedAuthority> authorities = new HashSet<>();
+
+        // Add the user type as an authority
+        authorities.add(new SimpleGrantedAuthority(userType.name()));
+
+        // Log the authorities being granted for debugging
+        log.debug("User {} has authorities: {}", username, authorities);
+
+        return authorities;
     }
 
     @Override
