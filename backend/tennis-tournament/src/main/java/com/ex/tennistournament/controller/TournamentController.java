@@ -2,6 +2,7 @@ package com.ex.tennistournament.controller;
 
 import com.ex.tennistournament.dto.TournamentDto;
 import com.ex.tennistournament.dto.TournamentSummaryDto;
+import com.ex.tennistournament.service.TournamentRegistrationService;
 import com.ex.tennistournament.service.TournamentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -11,7 +12,9 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 /**
  * REST Controller for managing tennis tournaments.
@@ -46,7 +49,7 @@ import java.util.List;
 public class TournamentController {
 
     private final TournamentService tournamentService;
-
+    private final TournamentRegistrationService registrationService;
     /**
      * Retrieves a list of all tournaments in summary format.
      * Returns basic tournament information without match details.
@@ -153,6 +156,13 @@ public class TournamentController {
         // Proceed with deletion
         tournamentService.deleteTournament(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{id}/participants-count")
+    public ResponseEntity<Map<String, Long>> getApprovedParticipantsCount(
+            @PathVariable("id") Long tournamentId) {
+        long count = registrationService.countApprovedRegistrationsByTournamentId(tournamentId);
+        return ResponseEntity.ok(Collections.singletonMap("count", count));
     }
 
     /**

@@ -31,6 +31,7 @@ public interface TournamentRegistrationRepository extends JpaRepository<Tourname
             TournamentRegistration.RegistrationStatus status,
             int limit);
 
+    long countByTournamentAndStatus(Tournament tournament, TournamentRegistration.RegistrationStatus status);
 //    @Transactional
 //    @Modifying
 //    @Query("DELETE FROM TournamentRegistration tr WHERE tr.tournament.id = ?1")

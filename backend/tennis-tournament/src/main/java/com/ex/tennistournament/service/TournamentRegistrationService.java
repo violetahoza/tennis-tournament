@@ -11,6 +11,9 @@ import com.ex.tennistournament.repository.TournamentRepository;
 import com.ex.tennistournament.repository.UserRepository;
 import com.ex.tennistournament.websocket.NotificationService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -91,6 +94,8 @@ public class TournamentRegistrationService {
         // Send notification to player about their registration
         sendRegistrationNotification(savedRegistration);
 
+        notifyAdminsAboutRegistration(savedRegistration);
+
         return mapToDto(savedRegistration);
     }
 
@@ -150,9 +155,38 @@ public class TournamentRegistrationService {
                 reg.setStatus(TournamentRegistration.RegistrationStatus.APPROVED);
                 TournamentRegistration savedReg = registrationRepository.save(reg);
 
-                // Send promotion notification
+                // Send promotion notification to player
                 sendRegistrationStatusChangeNotification(savedReg, oldStatus);
+
+                // Send notification to admins about the waitlist promotion
+                notifyAdminsAboutWaitlistPromotion(savedReg);
             }
+        }
+    }
+
+    private void notifyAdminsAboutWaitlistPromotion(TournamentRegistration registration) {
+        List<User> admins = userRepository.findByUserType(User.UserType.ADMIN);
+
+        String playerName = registration.getPlayer().getFirstName() + " " + registration.getPlayer().getLastName();
+        String tournamentName = registration.getTournament().getName();
+
+        String message = String.format(
+                "Player %s has been promoted from waitlist to APPROVED for tournament '%s'",
+                playerName,
+                tournamentName
+        );
+
+        // Send notification to each admin
+        for (User admin : admins) {
+            NotificationDto notification = NotificationDto.builder()
+                    .userId(admin.getId())
+                    .type("WAITLIST_PROMOTION")
+                    .message(message)
+                    .timestamp(LocalDateTime.now())
+                    .read(false)
+                    .build();
+
+            notificationService.sendNotification(notification);
         }
     }
 
@@ -161,15 +195,52 @@ public class TournamentRegistrationService {
         TournamentRegistration registration = registrationRepository.findById(registrationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Registration not found with id: " + registrationId));
 
-        // Send notification about cancellation
+        // Get current authenticated user
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !(authentication.getPrincipal() instanceof User)) {
+            throw new AccessDeniedException("Authentication required");
+        }
+
+        User currentUser = (User) authentication.getPrincipal();
+
+        // Check if the user is authorized to cancel this registration
+        // Allow if: the user is the player who registered OR the user is an admin
+        if (!currentUser.getId().equals(registration.getPlayer().getId()) &&
+                currentUser.getUserType() != User.UserType.ADMIN) {
+            throw new AccessDeniedException("You can only cancel your own registrations");
+        }
+
+        // Check if the tournament has already started
+        if (registration.getTournament().getStartDate().isBefore(LocalDate.now()) ||
+                registration.getTournament().getStartDate().isEqual(LocalDate.now())) {
+            throw new IllegalStateException("Cannot cancel registration after tournament has started");
+        }
+
+        // Send notification about cancellation to player
         sendRegistrationCancellationNotification(registration);
 
+        // Notify admins about the cancellation
+        notifyAdminsAboutCancellation(registration);
+
+        // Check if this was an approved registration to handle waitlist
+        boolean wasApproved = registration.getStatus() == TournamentRegistration.RegistrationStatus.APPROVED;
+
+        // Delete the registration
         registrationRepository.delete(registration);
 
-        // If this was an approved registration, we might have space for waitlisted players
-        if (registration.getStatus() == TournamentRegistration.RegistrationStatus.APPROVED) {
+        // If this was an approved registration, promote someone from the waitlist
+        if (wasApproved) {
             promoteWaitlistedRegistrations(registration.getTournament().getId());
         }
+    }
+
+    public long countApprovedRegistrationsByTournamentId(Long tournamentId) {
+        Tournament tournament = tournamentRepository.findById(tournamentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Tournament not found"));
+        return registrationRepository.countByTournamentAndStatus(
+                tournament,
+                TournamentRegistration.RegistrationStatus.APPROVED
+        );
     }
 
     /**
@@ -270,6 +341,68 @@ public class TournamentRegistrationService {
                 .build();
 
         notificationService.sendNotification(notification);
+    }
+
+    private void notifyAdminsAboutRegistration(TournamentRegistration registration) {
+        // Find all admin users
+        List<User> admins = userRepository.findByUserType(User.UserType.ADMIN);
+
+        String playerName = registration.getPlayer().getFirstName() + " " + registration.getPlayer().getLastName();
+        String tournamentName = registration.getTournament().getName();
+        String registrationStatus = registration.getStatus().toString();
+
+        String message = String.format(
+                "New registration: %s has registered for tournament '%s' (Status: %s)",
+                playerName,
+                tournamentName,
+                registrationStatus
+        );
+
+        // Send notification to each admin
+        for (User admin : admins) {
+            NotificationDto notification = NotificationDto.builder()
+                    .userId(admin.getId())
+                    .type("TOURNAMENT_REGISTRATION")
+                    .message(message)
+                    .timestamp(LocalDateTime.now())
+                    .read(false)
+                    .build();
+
+            notificationService.sendNotification(notification);
+        }
+    }
+
+    private void notifyAdminsAboutCancellation(TournamentRegistration registration) {
+        // Find all admin users
+        List<User> admins = userRepository.findByUserType(User.UserType.ADMIN);
+
+        String playerName = registration.getPlayer().getFirstName() + " " + registration.getPlayer().getLastName();
+        String tournamentName = registration.getTournament().getName();
+        String statusText = registration.getStatus() == TournamentRegistration.RegistrationStatus.APPROVED ?
+                "APPROVED" : registration.getStatus().toString();
+
+        String message = String.format(
+                "%s has canceled their %s registration for tournament '%s'",
+                playerName,
+                statusText,
+                tournamentName
+        );
+
+        String notificationType = registration.getStatus() == TournamentRegistration.RegistrationStatus.APPROVED ?
+                "APPROVED_REGISTRATION_CANCELLED" : "REGISTRATION_CANCELLED";
+
+        // Send notification to each admin
+        for (User admin : admins) {
+            NotificationDto notification = NotificationDto.builder()
+                    .userId(admin.getId())
+                    .type(notificationType)
+                    .message(message)
+                    .timestamp(LocalDateTime.now())
+                    .read(false)
+                    .build();
+
+            notificationService.sendNotification(notification);
+        }
     }
 
     private TournamentRegistrationDto mapToDto(TournamentRegistration registration) {

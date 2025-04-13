@@ -219,6 +219,8 @@ const Notifications = () => {
         return <AssignmentIcon color="warning" />;
       case 'REGISTRATION_CANCELLED':
         return <CancelIcon color="error" />;
+      case 'APPROVED_REGISTRATION_CANCELLED':
+        return <CancelIcon color="error" />;
       default:
         return <NotificationsIcon color="action" />;
     }

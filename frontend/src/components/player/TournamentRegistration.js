@@ -3,7 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
   Paper, Button, Typography, Box, Divider, Alert, CircularProgress,
-  Grid, Chip, List, ListItem, ListItemText, Card, CardContent
+  Grid, Chip, List, ListItem, ListItemText, Card, CardContent,
+  Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions
 } from '@mui/material';
 import { ArrowBack as ArrowBackIcon, EmojiEvents as TrophyIcon } from '@mui/icons-material';
 import { API_ENDPOINTS } from '../../config';
@@ -20,18 +21,34 @@ const TournamentRegistration = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [openCancelDialog, setOpenCancelDialog] = useState(false);
+  const [participantsCount, setParticipantsCount] = useState(0);
 
   useEffect(() => {
-    Promise.all([
-      fetchTournament(),
-      fetchRegistration()
-    ]).then(() => {
-      setLoading(false);
-    }).catch(error => {
-      console.error('Error fetching data:', error);
-      setError('An error occurred while fetching data.');
-      setLoading(false);
-    });
+    const fetchData = async () => {
+      try {
+        const [tournamentData, registrationData] = await Promise.all([
+          fetchTournament(),
+          fetchRegistration()
+        ]);
+        
+        // Fetch participants count after getting tournament data
+        if (tournamentData) {
+          const countRes = await axios.get(
+            API_ENDPOINTS.TOURNAMENTS.GET_BY_ID(tournamentData.id) + '/participants-count'
+          );
+          setParticipantsCount(countRes.data.count || 0);
+        }
+        
+        setLoading(false);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+        setError('An error occurred while fetching data.');
+        setLoading(false);
+      }
+    };
+    
+    fetchData();
   }, [id]);
 
   const fetchTournament = async () => {
@@ -50,10 +67,8 @@ const TournamentRegistration = () => {
     if (!auth.user?.id) return null;
     
     try {
-      // We need to query all registrations for this player and find the one for this tournament
       const res = await axios.get(API_ENDPOINTS.TOURNAMENT_REGISTRATIONS.GET_BY_PLAYER(auth.user.id));
       
-      // Check if we have registrations data
       if (res.data && Array.isArray(res.data)) {
         const tournamentRegistration = res.data.find(reg => reg.tournamentId === parseInt(id));
         
@@ -64,7 +79,6 @@ const TournamentRegistration = () => {
       }
       return null;
     } catch (err) {
-      // Registration might not exist, which is fine
       console.log('No existing registration found:', err);
       return null;
     }
@@ -90,6 +104,14 @@ const TournamentRegistration = () => {
     }
   };
 
+  const handleOpenCancelDialog = () => {
+    setOpenCancelDialog(true);
+  };
+
+  const handleCloseCancelDialog = () => {
+    setOpenCancelDialog(false);
+  };
+
   const handleCancelRegistration = async () => {
     if (!registration) return;
     
@@ -106,6 +128,7 @@ const TournamentRegistration = () => {
       console.error(err);
     } finally {
       setSubmitting(false);
+      setOpenCancelDialog(false);
     }
   };
 
@@ -123,9 +146,26 @@ const TournamentRegistration = () => {
       case 'PENDING': return 'warning';
       case 'APPROVED': return 'success';
       case 'REJECTED': return 'error';
+      case 'WAITLISTED': return 'info';
       default: return 'default';
     }
   };
+
+  // Only check if tournament has started for cancellation
+  const hasTournamentStarted = () => {
+    if (!tournament || !tournament.startDate) return false;
+    const today = new Date();
+    const startDate = new Date(tournament.startDate);
+    return startDate <= today;
+  };
+
+  // Allow cancellation for any status as long as tournament hasn't started
+  const canCancelRegistration = () => {
+    if (!registration) return false;
+    if (hasTournamentStarted()) return false;
+    return true;
+  };
+  
 
   if (loading) {
     return (
@@ -156,7 +196,7 @@ const TournamentRegistration = () => {
           Back
         </Button>
         <Typography variant="h5">
-          Tournament Registration
+          Tournament Details
         </Typography>
       </Box>
 
@@ -170,10 +210,20 @@ const TournamentRegistration = () => {
               <TrophyIcon sx={{ mr: 1, color: 'primary.main' }} />
               <Typography variant="h6">{tournament.name}</Typography>
             </Box>
-            <Chip 
-              label={isRegistrationOpen ? "Registration Open" : "Registration Closed"}
-              color={isRegistrationOpen ? "success" : "error"}
-            />
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Chip 
+                label={isRegistrationOpen ? "Registration Open" : "Registration Closed"}
+                color={isRegistrationOpen ? "success" : "error"}
+                size="small"
+              />
+              {hasTournamentStarted() && (
+                <Chip 
+                  label="Tournament Started"
+                  color="primary"
+                  size="small"
+                />
+              )}
+            </Box>
           </Box>
           
           <Grid container spacing={2}>
@@ -184,7 +234,7 @@ const TournamentRegistration = () => {
             </Grid>
             <Grid item xs={12} md={6}>
               <Typography variant="body1" gutterBottom><strong>Registration Deadline:</strong> {formatDate(tournament.registrationDeadline)}</Typography>
-              <Typography variant="body1" gutterBottom><strong>Participants:</strong> {tournament.registeredPlayers || 0}/{tournament.maxParticipants}</Typography>
+              <Typography variant="body1" gutterBottom><strong>Participants:</strong> {participantsCount || 0}/{tournament.maxParticipants}</Typography>
             </Grid>
           </Grid>
           
@@ -202,12 +252,12 @@ const TournamentRegistration = () => {
       {registration ? (
         <Card>
           <CardContent>
-            <Typography variant="h6" gutterBottom>Registration Details</Typography>
+            <Typography variant="h6" gutterBottom>Your Registration Details</Typography>
             
             <List>
               <ListItem divider>
                 <ListItemText 
-                  primary="Registration Status" 
+                  primary="Status" 
                   secondary={
                     <Chip 
                       label={registration.status} 
@@ -226,12 +276,12 @@ const TournamentRegistration = () => {
               </ListItem>
             </List>
             
-            {registration.status === 'PENDING' && (
+            {canCancelRegistration() && (
               <Box sx={{ mt: 3, textAlign: 'center' }}>
                 <Button
                   variant="outlined"
                   color="error"
-                  onClick={handleCancelRegistration}
+                  onClick={handleOpenCancelDialog}
                   disabled={submitting}
                 >
                   {submitting ? 'Cancelling...' : 'Cancel Registration'}
@@ -243,14 +293,38 @@ const TournamentRegistration = () => {
               <Alert severity="success" sx={{ mt: 3 }}>
                 <Typography variant="body1">
                   Your registration has been approved! You are all set to participate in this tournament.
+                  {!hasTournamentStarted() && " You can cancel your registration if needed."}
                 </Typography>
+                {hasTournamentStarted() && (
+                  <Typography variant="body2" sx={{ mt: 1 }}>
+                    The tournament has already started. If you need to withdraw, please contact the tournament administrators.
+                  </Typography>
+                )}
               </Alert>
             )}
             
             {registration.status === 'REJECTED' && (
               <Alert severity="error" sx={{ mt: 3 }}>
                 <Typography variant="body1">
-                  Unfortunately, your registration has been rejected. This could be due to the tournament being full or other eligibility criteria.
+                  Your registration has been rejected. This could be due to the tournament being full or other eligibility criteria.
+                </Typography>
+              </Alert>
+            )}
+
+            {registration.status === 'WAITLISTED' && (
+              <Alert severity="info" sx={{ mt: 3 }}>
+                <Typography variant="body1">
+                  You are currently on the waitlist for this tournament. You'll be automatically moved to the approved list if a spot becomes available.
+                  {!hasTournamentStarted() && " You can cancel your registration if you're no longer interested."}
+                </Typography>
+              </Alert>
+            )}
+            
+            {registration.status === 'PENDING' && (
+              <Alert severity="warning" sx={{ mt: 3 }}>
+                <Typography variant="body1">
+                  Your registration is pending approval by tournament administrators.
+                  {!hasTournamentStarted() && " You can cancel your registration if needed."}
                 </Typography>
               </Alert>
             )}
@@ -280,6 +354,30 @@ const TournamentRegistration = () => {
           </Alert>
         )
       )}
+
+      <Dialog
+        open={openCancelDialog}
+        onClose={handleCloseCancelDialog}
+      >
+        <DialogTitle>Confirm Cancellation</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {registration?.status === 'APPROVED' 
+              ? 'Are you sure you want to cancel your approved registration? Your spot will be given to another player if there is a waitlist.'
+              : 'Are you sure you want to cancel your registration?'}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseCancelDialog}>No, Keep My Registration</Button>
+          <Button 
+            onClick={handleCancelRegistration}
+            color="error"
+            disabled={submitting}
+          >
+            Yes, Cancel Registration
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Paper>
   );
 };

@@ -28,6 +28,7 @@ export const API_ENDPOINTS = {
     CREATE: `${API_BASE_URL}/api/tournaments`,
     UPDATE: (id) => `${API_BASE_URL}/api/tournaments/${id}`,
     DELETE: (id) => `${API_BASE_URL}/api/tournaments/${id}`,
+    GET_PARTICIPANTS_COUNT: (id) => `${API_BASE_URL}/api/tournaments/${id}/participants-count`,
   },
   
   // Tournament Registration endpoints

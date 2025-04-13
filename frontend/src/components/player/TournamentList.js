@@ -107,10 +107,6 @@ const TournamentList = () => {
     }
   };
 
-  const getStatusColor = (status) => {
-    return 'info'; // For simplicity, use 'info' color for all status values
-  };
-
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
@@ -216,7 +212,7 @@ const TournamentList = () => {
                       size="small" 
                       color="primary"
                       onClick={() => handleRegisterClick(tournament.id)}
-                      disabled={!isRegistrationOpen || registrationStatus === 'APPROVED'}
+                      disabled={!registrationStatus && !isRegistrationOpen}
                     >
                       {registrationStatus ? 'View Registration' : 'Register'}
                     </Button>
