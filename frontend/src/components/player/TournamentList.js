@@ -35,8 +35,8 @@ const TournamentList = () => {
 
   const fetchTournaments = async () => {
     try {
-      // Use the registration-open endpoint first to get available tournaments
-      const res = await axios.get(API_ENDPOINTS.TOURNAMENTS.GET_REGISTRATION_OPEN);
+      // Use the GET_ALL endpoint to fetch all tournaments regardless of registration status
+      const res = await axios.get(API_ENDPOINTS.TOURNAMENTS.GET_ALL);
       setTournaments(res.data);
       return res.data;
     } catch (err) {
@@ -45,7 +45,7 @@ const TournamentList = () => {
       throw err;
     }
   };
-
+  
   const fetchPlayerRegistrations = async () => {
     if (!auth.user?.id) return [];
 
