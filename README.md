@@ -30,6 +30,8 @@ A full-stack web application built to streamline the organization and management
 ### Reporting
 - **Match reports**: Generate CSV and TXT reports for matches
 
+---
+
 ## 🏗️ Architecture
 
 The application follows a modern, scalable architecture:
