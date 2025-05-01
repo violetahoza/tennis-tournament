@@ -55,6 +55,9 @@ public class TournamentRegistration {
     @Column(nullable = false, length = 20)
     private RegistrationStatus status;
 
+    /**
+     * Enum defining players' registration status in tournaments.
+     */
     public enum RegistrationStatus {
         PENDING, APPROVED, REJECTED, WAITLISTED
     }

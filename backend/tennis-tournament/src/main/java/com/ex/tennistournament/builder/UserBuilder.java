@@ -25,41 +25,90 @@ public class UserBuilder implements Builder<User> {
     // Stores the raw password before encoding
     private String rawPassword;
 
+    /**
+     * Constructor initializes a new User object and sets the PasswordEncoder.
+     *
+     * @param passwordEncoder the PasswordEncoder used to encode passwords
+     */
     public UserBuilder(PasswordEncoder passwordEncoder) {
         this.user = new User();
         this.passwordEncoder = passwordEncoder;
     }
 
+    /**
+     * Sets the username for the User.
+     *
+     * @param username the username to set
+     * @return the current instance of UserBuilder
+     */
     public UserBuilder username(String username) {
         this.user.setUsername(username);
         return this;
     }
 
+    /**
+     * Sets the email for the User.
+     *
+     * @param email the email to set
+     * @return the current instance of UserBuilder
+     */
     public UserBuilder email(String email) {
         this.user.setEmail(email);
         return this;
     }
 
+    /**
+     * Sets the raw password for the User.
+     * The password will be validated and encoded during the build process.
+     *
+     * @param password the raw password to set
+     * @return the current instance of UserBuilder
+     */
     public UserBuilder password(String password) {
         this.rawPassword = password; // Store raw password for validation
         return this;
     }
 
+    /**
+     * Sets the first name for the User.
+     *
+     * @param firstName the first name to set
+     * @return the current instance of UserBuilder
+     */
     public UserBuilder firstName(String firstName) {
         this.user.setFirstName(firstName);
         return this;
     }
 
+    /**
+     * Sets the last name for the User.
+     *
+     * @param lastName the last name to set
+     * @return the current instance of UserBuilder
+     */
     public UserBuilder lastName(String lastName) {
         this.user.setLastName(lastName);
         return this;
     }
 
+    /**
+     * Sets the user type for the User.
+     *
+     * @param userType the user type to set
+     * @return the current instance of UserBuilder
+     */
     public UserBuilder userType(User.UserType userType) {
         this.user.setUserType(userType);
         return this;
     }
 
+    /**
+     * Builds and returns the User object.
+     * Validates the User attributes and encodes the password before returning the object.
+     *
+     * @return the built User object
+     * @throws IllegalStateException if any required attribute is missing or invalid
+     */
     @Override
     public User build() {
         // Validate user before returning
@@ -73,6 +122,11 @@ public class UserBuilder implements Builder<User> {
         return user;
     }
 
+    /**
+     * Validates the User object to ensure all required attributes are set and valid.
+     *
+     * @throws IllegalStateException if any required attribute is missing or invalid
+     */
     private void validateUser() {
         // Username validation
         if (user.getUsername() == null || user.getUsername().trim().isEmpty()) {

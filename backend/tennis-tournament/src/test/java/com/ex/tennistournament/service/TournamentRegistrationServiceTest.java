@@ -31,24 +31,22 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
+/**
+ * Unit tests for the {@link TournamentRegistrationService} class.
+ * This class uses Mockito to mock dependencies and test the behavior of the TournamentRegistrationService.
+ */
 @ExtendWith(MockitoExtension.class)
 public class TournamentRegistrationServiceTest {
-
     @Mock
     private TournamentRegistrationRepository registrationRepository;
-
     @Mock
     private TournamentRepository tournamentRepository;
-
     @Mock
     private UserRepository userRepository;
-
     @Mock
     private NotificationService notificationService;
-
     @Mock
     private EmailService emailService;
-
     @InjectMocks
     private TournamentRegistrationService registrationService;
 
@@ -57,6 +55,10 @@ public class TournamentRegistrationServiceTest {
     private Tournament tournament;
     private TournamentRegistration registration;
 
+    /**
+     * Sets up the test environment before each test.
+     * Initializes test data and mocks.
+     */
     @BeforeEach
     void setUp() {
         // Create test data
@@ -90,6 +92,10 @@ public class TournamentRegistrationServiceTest {
         registration.setStatus(TournamentRegistration.RegistrationStatus.PENDING);
     }
 
+    /**
+     * Tests retrieving registrations by player when the player exists.
+     * Verifies that the correct registrations are returned.
+     */
     @Test
     void getRegistrationsByPlayer_whenPlayerExists_shouldReturnRegistrations() {
         // Arrange
@@ -107,6 +113,10 @@ public class TournamentRegistrationServiceTest {
         verify(registrationRepository, times(1)).findByPlayer(player);
     }
 
+    /**
+     * Tests retrieving registrations by player when the player does not exist.
+     * Verifies that a ResourceNotFoundException is thrown.
+     */
     @Test
     void getRegistrationsByPlayer_whenPlayerNotExists_shouldThrowException() {
         // Arrange
@@ -118,6 +128,10 @@ public class TournamentRegistrationServiceTest {
         verify(registrationRepository, never()).findByPlayer(any());
     }
 
+    /**
+     * Tests retrieving registrations by tournament when the tournament exists.
+     * Verifies that the correct registrations are returned.
+     */
     @Test
     void getRegistrationsByTournament_whenTournamentExists_shouldReturnRegistrations() {
         // Arrange
@@ -135,6 +149,10 @@ public class TournamentRegistrationServiceTest {
         verify(registrationRepository, times(1)).findByTournament(tournament);
     }
 
+    /**
+     * Tests retrieving registrations by tournament when the tournament does not exist.
+     * Verifies that a ResourceNotFoundException is thrown.
+     */
     @Test
     void getRegistrationsByTournament_whenTournamentNotExists_shouldThrowException() {
         // Arrange
@@ -146,6 +164,10 @@ public class TournamentRegistrationServiceTest {
         verify(registrationRepository, never()).findByTournament(any());
     }
 
+    /**
+     * Tests registering a player for a tournament with a valid request.
+     * Verifies that the registration is created successfully.
+     */
     @Test
     void registerPlayerForTournament_whenValidRequest_shouldCreateRegistration() {
         // Arrange
@@ -170,6 +192,10 @@ public class TournamentRegistrationServiceTest {
         verify(notificationService, atLeastOnce()).sendNotification(any());
     }
 
+    /**
+     * Tests registering a non-player user for a tournament.
+     * Verifies that an IllegalArgumentException is thrown.
+     */
     @Test
     void registerPlayerForTournament_whenNonPlayerUser_shouldThrowException() {
         // Arrange
@@ -187,6 +213,10 @@ public class TournamentRegistrationServiceTest {
         verify(registrationRepository, never()).save(any(TournamentRegistration.class));
     }
 
+    /**
+     * Tests registering a player for a tournament after the registration deadline has passed.
+     * Verifies that an IllegalArgumentException is thrown.
+     */
     @Test
     void registerPlayerForTournament_whenDeadlinePassed_shouldThrowException() {
         // Arrange
@@ -201,6 +231,10 @@ public class TournamentRegistrationServiceTest {
         verify(registrationRepository, never()).save(any(TournamentRegistration.class));
     }
 
+    /**
+     * Tests registering a player for a tournament when the player is already registered.
+     * Verifies that an IllegalArgumentException is thrown.
+     */
     @Test
     void registerPlayerForTournament_whenAlreadyRegistered_shouldThrowException() {
         // Arrange
@@ -216,6 +250,10 @@ public class TournamentRegistrationServiceTest {
         verify(registrationRepository, never()).save(any(TournamentRegistration.class));
     }
 
+    /**
+     * Tests updating the registration status when the registration exists.
+     * Verifies that the status is updated successfully.
+     */
     @Test
     void updateRegistrationStatus_whenRegistrationExists_shouldUpdateStatus() {
         // Arrange
@@ -236,6 +274,10 @@ public class TournamentRegistrationServiceTest {
         verify(notificationService, atLeastOnce()).sendNotification(any());
     }
 
+    /**
+     * Tests updating the registration status when the registration does not exist.
+     * Verifies that a ResourceNotFoundException is thrown.
+     */
     @Test
     void updateRegistrationStatus_whenRegistrationNotExists_shouldThrowException() {
         // Arrange
@@ -249,6 +291,10 @@ public class TournamentRegistrationServiceTest {
         verify(registrationRepository, never()).save(any(TournamentRegistration.class));
     }
 
+    /**
+     * Tests canceling a registration when authenticated as a player.
+     * Verifies that the registration is canceled successfully.
+     */
     @Test
     void cancelRegistration_whenAuthenticatedAsPlayer_shouldCancelRegistration() {
         // Arrange - Mock security context
@@ -271,6 +317,10 @@ public class TournamentRegistrationServiceTest {
         verify(notificationService, atLeastOnce()).sendNotification(any());
     }
 
+    /**
+     * Tests canceling a registration when the tournament has already started.
+     * Verifies that an IllegalStateException is thrown.
+     */
     @Test
     void cancelRegistration_whenTournamentStarted_shouldThrowException() {
         // Arrange - Mock security context
@@ -292,6 +342,10 @@ public class TournamentRegistrationServiceTest {
         verify(registrationRepository, never()).delete(any());
     }
 
+    /**
+     * Tests counting approved registrations by tournament ID when the tournament exists.
+     * Verifies that the correct count is returned.
+     */
     @Test
     void countApprovedRegistrationsByTournamentId_whenTournamentExists_shouldReturnCount() {
         // Arrange

@@ -18,18 +18,25 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
 
+/**
+ * Unit tests for the {@link ReportService} class.
+ * This class tests the functionality of generating reports in CSV and TXT formats
+ * for tennis tournament matches.
+ */
 @ExtendWith(MockitoExtension.class)
 public class ReportServiceTest {
-
     @Mock
     private MatchService matchService;
-
     @InjectMocks
     private ReportService reportService;
 
     private MatchDto match1;
     private MatchDto match2;
 
+    /**
+     * Sets up the test environment before each test.
+     * Initializes test data for matches.
+     */
     @BeforeEach
     void setUp() {
         // Setup test data
@@ -58,6 +65,10 @@ public class ReportServiceTest {
                 .build();
     }
 
+    /**
+     * Tests generating a CSV report for a list of matches.
+     * Verifies that the generated CSV contains the correct data.
+     */
     @Test
     void generateMatchesCSV_shouldReturnValidCSV() throws IOException {
         // Arrange
@@ -73,6 +84,10 @@ public class ReportServiceTest {
         assertTrue(csvContent.contains("2,Summer Grand Slam,ROUND_1,Novak Djokovic,Andy Murray,Eva Asderaki,2,2023-06-15 16:00,COMPLETED"));
     }
 
+    /**
+     * Tests generating a TXT report for a list of matches.
+     * Verifies that the generated TXT contains the correct data.
+     */
     @Test
     void generateMatchesTXT_shouldReturnValidTextReport() {
         // Arrange
@@ -94,6 +109,10 @@ public class ReportServiceTest {
         assertTrue(txtContent.contains("Status: COMPLETED"));
     }
 
+    /**
+     * Tests generating a CSV report with an empty list of matches.
+     * Verifies that only the header is returned.
+     */
     @Test
     void generateMatchesCSV_withEmptyList_shouldReturnOnlyHeader() throws IOException {
         // Arrange
@@ -107,6 +126,10 @@ public class ReportServiceTest {
         assertEquals("Match ID,Tournament,Round,Player 1,Player 2,Referee,Court,Scheduled Time,Status\n", csvContent);
     }
 
+    /**
+     * Tests generating a TXT report with an empty list of matches.
+     * Verifies that only the header is returned.
+     */
     @Test
     void generateMatchesTXT_withEmptyList_shouldReturnHeaderOnly() {
         // Arrange
@@ -122,6 +145,10 @@ public class ReportServiceTest {
         assertFalse(txtContent.contains("Match ID:"));
     }
 
+    /**
+     * Tests generating a CSV report with null values in match data.
+     * Verifies that null values are handled gracefully in the output.
+     */
     @Test
     void generateMatchesCSV_withNullValues_shouldHandleGracefully() throws IOException {
         // Arrange
@@ -147,6 +174,10 @@ public class ReportServiceTest {
         assertTrue(csvContent.contains("3,,,Player A,,,," + "2023-06-16 10:00,"));
     }
 
+    /**
+     * Tests generating a TXT report with null values in match data.
+     * Verifies that null values are handled gracefully in the output.
+     */
     @Test
     void generateMatchesTXT_withNullValues_shouldHandleGracefully() {
         // Arrange

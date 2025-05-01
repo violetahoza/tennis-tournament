@@ -25,24 +25,28 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.*;
 
+/**
+ * Unit tests for the {@link TournamentService} class.
+ * This class uses Mockito to mock dependencies and test the behavior of the TournamentService.
+ */
 @ExtendWith(MockitoExtension.class)
 public class TournamentServiceTest {
-
     @Mock
     private TournamentRepository tournamentRepository;
-
     @Mock
     private TournamentRegistrationRepository registrationRepository;
-
     @Mock
     private MatchRepository matchRepository;
-
     @InjectMocks
     private TournamentService tournamentService;
 
     private Tournament tournament;
     private TournamentDto tournamentDto;
 
+    /**
+     * Sets up the test environment before each test.
+     * Initializes test data and mocks.
+     */
     @BeforeEach
     void setUp() {
         // Initialize test data
@@ -67,6 +71,10 @@ public class TournamentServiceTest {
         tournamentDto.setMaxParticipants(128);
     }
 
+    /**
+     * Tests retrieving all tournaments.
+     * Verifies that the correct list of tournaments is returned.
+     */
     @Test
     void getAllTournaments_ShouldReturnListOfTournaments() {
         // Arrange
@@ -84,6 +92,10 @@ public class TournamentServiceTest {
         verify(tournamentRepository, times(1)).findAll();
     }
 
+    /**
+     * Tests retrieving upcoming tournaments.
+     * Verifies that only tournaments with a future start date are returned.
+     */
     @Test
     void getUpcomingTournaments_ShouldReturnTournamentsWithStartDateInFuture() {
         // Arrange
@@ -100,6 +112,10 @@ public class TournamentServiceTest {
         verify(tournamentRepository, times(1)).findByStartDateAfter(any(LocalDate.class));
     }
 
+    /**
+     * Tests retrieving tournaments open for registration.
+     * Verifies that only tournaments with a future registration deadline are returned.
+     */
     @Test
     void getOpenForRegistrationTournaments_ShouldReturnTournamentsWithRegistrationDeadlineInFuture() {
         // Arrange
@@ -116,6 +132,10 @@ public class TournamentServiceTest {
         verify(tournamentRepository, times(1)).findByRegistrationDeadlineAfter(any(LocalDate.class));
     }
 
+    /**
+     * Tests retrieving a tournament by its ID.
+     * Verifies that the correct tournament is returned when it exists.
+     */
     @Test
     void getTournamentById_ShouldReturnTournament_WhenExists() {
         // Arrange
@@ -131,6 +151,10 @@ public class TournamentServiceTest {
         verify(tournamentRepository, times(1)).findById(1L);
     }
 
+    /**
+     * Tests retrieving a tournament by its ID when it does not exist.
+     * Verifies that a ResourceNotFoundException is thrown.
+     */
     @Test
     void getTournamentById_ShouldThrowException_WhenNotExists() {
         // Arrange
@@ -143,6 +167,10 @@ public class TournamentServiceTest {
         verify(tournamentRepository, times(1)).findById(1L);
     }
 
+    /**
+     * Tests creating a new tournament.
+     * Verifies that the tournament is created successfully.
+     */
     @Test
     void createTournament_ShouldReturnCreatedTournament() {
         // Arrange
@@ -158,6 +186,10 @@ public class TournamentServiceTest {
         verify(tournamentRepository, times(1)).save(any(Tournament.class));
     }
 
+    /**
+     * Tests updating an existing tournament.
+     * Verifies that the tournament is updated successfully when it exists.
+     */
     @Test
     void updateTournament_ShouldReturnUpdatedTournament_WhenTournamentExists() {
         // Arrange
@@ -177,6 +209,10 @@ public class TournamentServiceTest {
         verify(tournamentRepository, times(1)).save(any(Tournament.class));
     }
 
+    /**
+     * Tests updating a tournament when it does not exist.
+     * Verifies that a ResourceNotFoundException is thrown.
+     */
     @Test
     void updateTournament_ShouldThrowException_WhenTournamentNotExists() {
         // Arrange
@@ -190,6 +226,10 @@ public class TournamentServiceTest {
         verify(tournamentRepository, never()).save(any(Tournament.class));
     }
 
+    /**
+     * Tests deleting a tournament.
+     * Verifies that the tournament is deleted successfully when it exists and can be deleted.
+     */
     @Test
     void deleteTournament_ShouldSucceed_WhenTournamentExistsAndCanBeDeleted() {
         // Arrange
@@ -207,7 +247,10 @@ public class TournamentServiceTest {
         verify(tournamentRepository, times(1)).findById(1L);
         verify(tournamentRepository, times(1)).deleteById(1L);
     }
-
+    /**
+     * Tests deleting a tournament that has already started.
+     * Verifies that an IllegalStateException is thrown.
+     */
     @Test
     void deleteTournament_ShouldThrowException_WhenTournamentAlreadyStarted() {
         // Arrange
@@ -224,6 +267,10 @@ public class TournamentServiceTest {
         verify(tournamentRepository, never()).deleteById(anyLong());
     }
 
+    /**
+     * Tests deleting a tournament that has matches.
+     * Verifies that an IllegalStateException is thrown.
+     */
     @Test
     void deleteTournament_ShouldThrowException_WhenTournamentHasMatches() {
         // Arrange
@@ -243,6 +290,10 @@ public class TournamentServiceTest {
         verify(tournamentRepository, never()).deleteById(anyLong());
     }
 
+    /**
+     * Tests deleting a tournament that has registrations.
+     * Verifies that an IllegalStateException is thrown.
+     */
     @Test
     void deleteTournament_ShouldThrowException_WhenTournamentHasRegistrations() {
         // Arrange

@@ -33,30 +33,26 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.*;
 
+/**
+ * Unit tests for the {@link MatchScoreService} class.
+ * This class uses Mockito to mock dependencies and test the behavior of the MatchScoreService.
+ */
 @ExtendWith(MockitoExtension.class)
 public class MatchScoreServiceTest {
-
     @Mock
     private MatchScoreRepository matchScoreRepository;
-
     @Mock
     private MatchRepository matchRepository;
-
     @Mock
     private MatchScoreSubject matchScoreSubject;
-
     @Mock
     private MatchScoreLogger matchScoreLogger;
-
     @Mock
     private NotificationService notificationService;
-
     @Mock
     private UserRepository userRepository;
-
     @Mock
     private SecurityContext securityContext;
-
     @InjectMocks
     private MatchScoreService matchScoreService;
 
@@ -67,6 +63,10 @@ public class MatchScoreServiceTest {
     private MatchScore matchScore;
     private MatchScoreDto matchScoreDto;
 
+    /**
+     * Sets up the test environment before each test.
+     * Initializes test data and mocks.
+     */
     @BeforeEach
     void setUp() {
         // Initialize test data
@@ -121,6 +121,10 @@ public class MatchScoreServiceTest {
         SecurityContextHolder.setContext(securityContext);
     }
 
+    /**
+     * Tests retrieving scores by match ID.
+     * Verifies that the correct scores are returned.
+     */
     @Test
     void getScoresByMatch_ShouldReturnScores() {
         // Arrange
@@ -140,6 +144,10 @@ public class MatchScoreServiceTest {
         verify(matchScoreRepository, times(1)).findByMatchOrderBySetNumber(match);
     }
 
+    /**
+     * Tests retrieving a score by its ID.
+     * Verifies that the correct score is returned when it exists.
+     */
     @Test
     void getScoreById_ShouldReturnScore_WhenExists() {
         // Arrange
@@ -155,6 +163,10 @@ public class MatchScoreServiceTest {
         verify(matchScoreRepository, times(1)).findById(1L);
     }
 
+    /**
+     * Tests retrieving a score by its ID when it does not exist.
+     * Verifies that a ResourceNotFoundException is thrown.
+     */
     @Test
     void getScoreById_ShouldThrowException_WhenNotExists() {
         // Arrange
@@ -167,6 +179,10 @@ public class MatchScoreServiceTest {
         verify(matchScoreRepository, times(1)).findById(1L);
     }
 
+    /**
+     * Tests creating a new score for a match.
+     * Verifies that the score is created successfully when input is valid.
+     */
     @Test
     void createScore_ShouldReturnCreatedScore_WhenValidInput() {
         // Arrange
@@ -188,6 +204,10 @@ public class MatchScoreServiceTest {
         verify(matchScoreSubject, times(1)).scoreAdded(eq(match), any(MatchScore.class));
     }
 
+    /**
+     * Tests creating a score when the match is not found.
+     * Verifies that a ResourceNotFoundException is thrown.
+     */
     @Test
     void createScore_ShouldThrowException_WhenMatchNotFound() {
         // Arrange
@@ -201,6 +221,10 @@ public class MatchScoreServiceTest {
         verify(matchScoreRepository, never()).save(any(MatchScore.class));
     }
 
+    /**
+     * Tests creating a score when the match is already completed.
+     * Verifies that an IllegalStateException is thrown.
+     */
     @Test
     void createScore_ShouldThrowException_WhenMatchIsCompleted() {
         // Arrange
@@ -215,6 +239,10 @@ public class MatchScoreServiceTest {
         verify(matchScoreRepository, never()).save(any(MatchScore.class));
     }
 
+    /**
+     * Tests creating a score when the user is not a referee or admin.
+     * Verifies that an IllegalStateException is thrown.
+     */
     @Test
     void createScore_ShouldThrowException_WhenNotRefereeOrAdmin() {
         // Arrange
@@ -236,6 +264,10 @@ public class MatchScoreServiceTest {
         verify(matchScoreRepository, never()).save(any(MatchScore.class));
     }
 
+    /**
+     * Tests creating a score when the user is not a referee or admin.
+     * Verifies that an IllegalStateException is thrown.
+     */
     @Test
     void createScore_ShouldThrowException_WhenScoreAlreadyExistsForSet() {
         // Arrange
@@ -252,6 +284,10 @@ public class MatchScoreServiceTest {
         verify(matchScoreRepository, never()).save(any(MatchScore.class));
     }
 
+    /**
+     * Tests updating an existing score.
+     * Verifies that the score is updated successfully when input is valid.
+     */
     @Test
     void updateScore_ShouldReturnUpdatedScore_WhenValidInput() {
         // Arrange
@@ -278,6 +314,10 @@ public class MatchScoreServiceTest {
         verify(matchScoreSubject, times(1)).scoreUpdated(eq(match), any(MatchScore.class));
     }
 
+    /**
+     * Tests completing a match.
+     * Verifies that the match is marked as completed and notifications are sent.
+     */
     @Test
     void completeMatch_ShouldSucceed_WhenValidInput() {
         // Arrange
@@ -319,6 +359,10 @@ public class MatchScoreServiceTest {
         verify(notificationService, times(1)).sendNotification(any(NotificationDto.class));
     }
 
+    /**
+     * Tests completing a match when no scores exist.
+     * Verifies that an IllegalStateException is thrown.
+     */
     @Test
     void completeMatch_ShouldThrowException_WhenNoScores() {
         // Arrange
@@ -333,6 +377,10 @@ public class MatchScoreServiceTest {
         verify(matchRepository, never()).save(any(Match.class));
     }
 
+    /**
+     * Tests completing a match when scores are tied.
+     * Verifies that an IllegalStateException is thrown.
+     */
     @Test
     void completeMatch_ShouldThrowException_WhenScoresTied() {
         // Arrange
@@ -361,6 +409,10 @@ public class MatchScoreServiceTest {
         verify(matchRepository, never()).save(any(Match.class));
     }
 
+    /**
+     * Tests validating a tennis set score.
+     * Verifies that an exception is thrown for invalid scores.
+     */
     @Test
     void validateTennisSetScore_ShouldThrowException_ForInvalidScores() {
         // Create a DTO with invalid scores (tie)

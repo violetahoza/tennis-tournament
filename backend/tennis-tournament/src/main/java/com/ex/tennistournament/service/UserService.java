@@ -43,6 +43,13 @@ public class UserService {
     private final AuthenticationManager authenticationManager;
     private final JwtUtils jwtUtils;
 
+    /**
+     * Registers a new user in the system.
+     *
+     * @param registrationDto the user registration details
+     * @return the registered user as a DTO
+     * @throws IllegalArgumentException if the username or email is already in use
+     */
     @Transactional
     public UserDto registerUser(UserRegistrationDto registrationDto) {
         // Check if username is already taken
@@ -73,6 +80,12 @@ public class UserService {
         }
     }
 
+    /**
+     * Authenticates a user and generates a JWT token.
+     *
+     * @param loginDto the login credentials
+     * @return the JWT response containing the token and user details
+     */
     public JwtResponseDto authenticateUser(LoginDto loginDto) {
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(loginDto.getUsername(), loginDto.getPassword()));
@@ -94,24 +107,51 @@ public class UserService {
                 .build();
     }
 
+    /**
+     * Retrieves a user by their ID.
+     *
+     * @param id the ID of the user
+     * @return the user as a DTO
+     * @throws ResourceNotFoundException if the user is not found
+     */
     public UserDto getUserById(Long id) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
         return mapUserToDto(user);
     }
 
+    /**
+     * Retrieves all users in the system.
+     *
+     * @return a list of user DTOs
+     */
     public List<UserDto> getAllUsers() {
         return userRepository.findAll().stream()
                 .map(this::mapUserToDto)
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Retrieves all users of a specific type.
+     *
+     * @param userType the type of users to retrieve
+     * @return a list of user DTOs
+     */
     public List<UserDto> getUsersByType(User.UserType userType) {
         return userRepository.findByUserType(userType).stream()
                 .map(this::mapUserToDto)
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Updates an existing user's profile.
+     *
+     * @param id      the ID of the user to update
+     * @param userDto the updated user details
+     * @return the updated user as a DTO
+     * @throws AccessDeniedException if the current user is not authorized to update the profile
+     * @throws IllegalArgumentException if the username or email is already in use
+     */
     @Transactional
     public UserDto updateUser(Long id, UserDto userDto) {
         User existingUser = userRepository.findById(id)
@@ -185,6 +225,15 @@ public class UserService {
         }
     }
 
+    /**
+     * Updates a user's password.
+     *
+     * @param id          the ID of the user
+     * @param passwordDto the password update details
+     * @return the updated user as a DTO
+     * @throws AccessDeniedException if the current user is not authorized to update the password
+     * @throws IllegalArgumentException if the current password is incorrect
+     */
     @Transactional
     public UserDto updatePassword(Long id, PasswordUpdateDto passwordDto) {
         User user = userRepository.findById(id)
@@ -225,6 +274,12 @@ public class UserService {
         }
     }
 
+    /**
+     * Deletes a user from the system.
+     *
+     * @param id the ID of the user to delete
+     * @throws IllegalStateException if the user is the last admin or has active matches/registrations
+     */
     @Transactional
     public void deleteUser(Long id) {
         User user = userRepository.findById(id)
@@ -267,6 +322,12 @@ public class UserService {
         userRepository.deleteById(id);
     }
 
+    /**
+     * Maps a User entity to a UserDto.
+     *
+     * @param user the User entity
+     * @return the UserDto
+     */
     private UserDto mapUserToDto(User user) {
         return UserDto.builder()
                 .id(user.getId())

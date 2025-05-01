@@ -11,6 +11,13 @@ import org.springframework.stereotype.Component;
 @Slf4j
 public class MatchScoreLogger implements Observer {
 
+    /**
+     * Updates the observer with a message and associated data.
+     * If the data is a MatchScoreEvent, it logs the event details.
+     *
+     * @param message the message describing the update
+     * @param data    the data associated with the update
+     */
     @Override
     public void update(String message, Object data) {
         if (data instanceof MatchScoreEvent event) {
@@ -19,7 +26,10 @@ public class MatchScoreLogger implements Observer {
     }
 
     /**
-     * Log match score event details
+     * Logs the details of a match score event.
+     *
+     * @param message the message describing the event
+     * @param event   the MatchScoreEvent containing event details
      */
     public void log(String message, MatchScoreEvent event) {
         log.info("=== MATCH SCORE EVENT ===");

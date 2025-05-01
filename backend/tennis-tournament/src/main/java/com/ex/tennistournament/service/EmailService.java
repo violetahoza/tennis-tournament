@@ -20,8 +20,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 /**
- * Service for sending email notifications.
- * Uses Spring Mail with Thymeleaf templates for email content.
+ * Service for sending emails using Spring Mail and Thymeleaf templates.
+ * Provides functionality for sending both template-based and plain text emails.
+ * Includes support for asynchronous email sending and fallback mechanisms.
  */
 @Service
 @RequiredArgsConstructor
@@ -32,13 +33,19 @@ public class EmailService {
     private final TemplateEngine templateEngine;
 
     @Value("${spring.mail.username:noreply@tennistournament.com}")
-    private String fromEmail;
+    private String fromEmail; // default sender email address
 
     @Value("${tennis.app.email.enabled:true}")
     private boolean emailEnabled;
 
     /**
-     * Send an email with a Thymeleaf template
+     * Sends an email using a Thymeleaf template.
+     * If the base template fails, it falls back to the specific template or generates basic content.
+     *
+     * @param to           Recipient email address
+     * @param subject      Email subject
+     * @param templateName Name of the Thymeleaf template
+     * @param variables    Variables for template processing
      */
     @Async
     public void sendTemplateEmail(String to, String subject, String templateName, Map<String, Object> variables) {
@@ -95,8 +102,14 @@ public class EmailService {
         }
     }
 
+
     /**
-     * Process a template with Thymeleaf
+     * Processes a Thymeleaf template with the provided variables.
+     * Attempts to load the template from multiple paths or generates fallback content.
+     *
+     * @param templateName Name of the template
+     * @param variables    Variables for template processing
+     * @return Processed template content as a String
      */
     private String processTemplate(String templateName, Map<String, Object> variables) {
         log.debug("Processing template '{}' with variables: {}", templateName, variables.keySet());
@@ -156,7 +169,12 @@ public class EmailService {
     }
 
     /**
-     * Send a fallback email when template processing fails
+     * Sends a fallback email when template processing fails.
+     *
+     * @param to       Recipient email address
+     * @param subject  Email subject
+     * @param variables Variables for generating fallback content
+     * @throws MessagingException if email sending fails
      */
     private void sendFallbackEmail(String to, String subject, Map<String, Object> variables) throws MessagingException {
         log.info("Sending fallback email to: {}", to);
@@ -176,7 +194,10 @@ public class EmailService {
     }
 
     /**
-     * Generate basic HTML content when template processing fails
+     * Generates basic HTML content for fallback emails.
+     *
+     * @param variables Variables for generating email content
+     * @return Generated HTML content as a String
      */
     private String generateBasicEmailContent(Map<String, Object> variables) {
         String playerName = variables.containsKey("playerName") ? variables.get("playerName").toString() : "Player";
@@ -207,10 +228,11 @@ public class EmailService {
     }
 
     /**
-     * Send a plain text email
-     * @param to Recipient email address
+     * Sends a plain text email.
+     *
+     * @param to      Recipient email address
      * @param subject Email subject
-     * @param text Email body text
+     * @param text    Email body text
      */
     @Async
     public void sendSimpleEmail(String to, String subject, String text) {
@@ -236,7 +258,11 @@ public class EmailService {
     }
 
     /**
-     * Test method to validate the email templates
+     * Tests a Thymeleaf template by processing it with the provided variables.
+     *
+     * @param templateName Name of the template
+     * @param variables    Variables for template processing
+     * @return Processed template content or an error message
      */
     public String testTemplate(String templateName, Map<String, Object> variables) {
         try {
@@ -248,7 +274,9 @@ public class EmailService {
     }
 
     /**
-     * Simple method to verify email configuration is working
+     * Verifies the email configuration by testing the mail server connection.
+     *
+     * @return true if the configuration is valid, false otherwise
      */
     public boolean testEmailConfiguration() {
         try {

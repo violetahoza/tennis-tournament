@@ -27,12 +27,25 @@ public class ReportService {
     private final MatchService matchService;
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
+    /**
+     * Generates a CSV report for a list of matches.
+     *
+     * @param matches the list of matches to include in the report
+     * @return the CSV content as a string
+     * @throws IOException if an I/O error occurs during CSV generation
+     */
     public String generateMatchesCSV(List<MatchDto> matches) throws IOException {
         StringWriter stringWriter = new StringWriter();
         writeMatchesToCSV(stringWriter, matches);
         return stringWriter.toString();
     }
 
+    /**
+     * Generates a TXT report for a list of matches.
+     *
+     * @param matches the list of matches to include in the report
+     * @return the TXT content as a string
+     */
     public String generateMatchesTXT(List<MatchDto> matches) {
         StringBuilder sb = new StringBuilder();
         sb.append("TENNIS TOURNAMENT MATCHES REPORT\n");
@@ -52,6 +65,13 @@ public class ReportService {
         return sb.toString();
     }
 
+    /**
+     * Writes match data to a CSV format.
+     *
+     * @param writer  the writer to output the CSV content
+     * @param matches the list of matches to include in the CSV
+     * @throws IOException if an I/O error occurs during writing
+     */
     private void writeMatchesToCSV(Writer writer, List<MatchDto> matches) throws IOException {
         CSVWriter csvWriter = new CSVWriter(writer,
                 CSVWriter.DEFAULT_SEPARATOR,

@@ -28,30 +28,59 @@ public class TournamentService {
     private final TournamentRegistrationRepository registrationRepository;
     private final MatchRepository matchRepository;
 
+    /**
+     * Retrieves all tournaments in the system.
+     *
+     * @return a list of tournament summary DTOs
+     */
     public List<TournamentSummaryDto> getAllTournaments() {
         return tournamentRepository.findAll().stream()
                 .map(this::mapToSummaryDto)
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Retrieves all upcoming tournaments.
+     *
+     * @return a list of tournament summary DTOs
+     */
     public List<TournamentSummaryDto> getUpcomingTournaments() {
         return tournamentRepository.findByStartDateAfter(LocalDate.now()).stream()
                 .map(this::mapToSummaryDto)
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Retrieves all tournaments open for registration.
+     *
+     * @return a list of tournament summary DTOs
+     */
     public List<TournamentSummaryDto> getOpenForRegistrationTournaments() {
         return tournamentRepository.findByRegistrationDeadlineAfter(LocalDate.now()).stream()
                 .map(this::mapToSummaryDto)
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Retrieves a specific tournament by its ID.
+     *
+     * @param id the ID of the tournament
+     * @return the tournament DTO
+     * @throws ResourceNotFoundException if the tournament is not found
+     */
     public TournamentDto getTournamentById(Long id) {
         Tournament tournament = tournamentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Tournament not found with id: " + id));
         return mapToDto(tournament);
     }
 
+    /**
+     * Creates a new tournament in the system.
+     *
+     * @param tournamentDto the tournament DTO containing tournament details
+     * @return the created tournament DTO
+     * @throws IllegalArgumentException if the tournament creation fails
+     */
     @Transactional
     public TournamentDto createTournament(TournamentDto tournamentDto) {
         try {
@@ -73,6 +102,15 @@ public class TournamentService {
         }
     }
 
+    /**
+     * Updates an existing tournament.
+     *
+     * @param id            the ID of the tournament to update
+     * @param tournamentDto the tournament DTO containing updated details
+     * @return the updated tournament DTO
+     * @throws ResourceNotFoundException if the tournament is not found
+     * @throws IllegalArgumentException  if the update fails
+     */
     @Transactional
     public TournamentDto updateTournament(Long id, TournamentDto tournamentDto) {
         Tournament existingTournament = tournamentRepository.findById(id)
@@ -111,7 +149,12 @@ public class TournamentService {
     }
 
     /**
-     * Updates limited fields for tournaments that have already started
+     * Updates limited fields for tournaments that have already started.
+     *
+     * @param existingTournament the existing tournament
+     * @param tournamentDto      the tournament DTO containing updated details
+     * @return the updated tournament DTO
+     * @throws IllegalArgumentException if invalid updates are attempted
      */
     private TournamentDto updateStartedTournament(Tournament existingTournament, TournamentDto tournamentDto) {
         // For tournaments that have already started, only allow updating description, end date, and max participants
@@ -140,6 +183,13 @@ public class TournamentService {
         return mapToDto(updatedTournament);
     }
 
+    /**
+     * Deletes a tournament from the system.
+     *
+     * @param id the ID of the tournament to delete
+     * @throws ResourceNotFoundException if the tournament is not found
+     * @throws IllegalStateException     if the tournament cannot be deleted
+     */
     @Transactional
     public void deleteTournament(Long id) {
         Tournament tournament = tournamentRepository.findById(id)
@@ -188,6 +238,12 @@ public class TournamentService {
 //                        m.getStatus() == Match.MatchStatus.CANCELLED);
 //    }
 
+    /**
+     * Maps a Tournament entity to a TournamentDto.
+     *
+     * @param tournament the Tournament entity
+     * @return the TournamentDto
+     */
     private TournamentDto mapToDto(Tournament tournament) {
         return TournamentDto.builder()
                 .id(tournament.getId())
@@ -201,6 +257,12 @@ public class TournamentService {
                 .build();
     }
 
+    /**
+     * Maps a Tournament entity to a TournamentSummaryDto.
+     *
+     * @param tournament the Tournament entity
+     * @return the TournamentSummaryDto
+     */
     private TournamentSummaryDto mapToSummaryDto(Tournament tournament) {
         long registeredCount = registrationRepository.countApprovedRegistrationsByTournamentId(tournament.getId());
         boolean isOpen = tournament.getRegistrationDeadline().isAfter(LocalDate.now());

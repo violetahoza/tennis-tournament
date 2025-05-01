@@ -28,6 +28,13 @@ public class MatchScoreNotificationService implements Observer {
     // Track recent notifications to prevent duplicates
     private final Map<String, LocalDateTime> recentNotifications = new HashMap<>();
 
+    /**
+     * Handles updates from the subject in the Observer pattern.
+     * Processes match score events and sends notifications to players.
+     *
+     * @param message the message describing the update
+     * @param data    the data associated with the update, expected to be a MatchScoreEvent
+     */
     @Override
     public void update(String message, Object data) {
         if (data instanceof MatchScoreEvent event) {
@@ -58,7 +65,10 @@ public class MatchScoreNotificationService implements Observer {
     }
 
     /**
-     * Generate a unique key for the notification to detect duplicates
+     * Generates a unique key for the notification to detect duplicates.
+     *
+     * @param event the match score event
+     * @return a unique key based on match details and event specifics
      */
     private String generateNotificationKey(MatchScoreEvent event) {
         // Create a unique identifier based on match details and event specifics
@@ -71,7 +81,11 @@ public class MatchScoreNotificationService implements Observer {
     }
 
     /**
-     * Check if this is a duplicate notification
+     * Checks if the notification is a duplicate.
+     * Removes old entries older than 5 minutes.
+     *
+     * @param key the unique key for the notification
+     * @return true if the notification is a duplicate, false otherwise
      */
     private boolean isDuplicateNotification(String key) {
         // Remove old entries (keep only last 5 minutes)
@@ -84,7 +98,11 @@ public class MatchScoreNotificationService implements Observer {
     }
 
     /**
-     * Create a single, consistent notification message
+     * Creates a consistent notification message based on the event type.
+     *
+     * @param messageType the type of the message
+     * @param event       the match score event
+     * @return a formatted notification message
      */
     private String createNotificationMessage(String messageType, MatchScoreEvent event) {
         String player1Name = event.getPlayer1Name();
@@ -119,7 +137,10 @@ public class MatchScoreNotificationService implements Observer {
     }
 
     /**
-     * Determine the most appropriate notification type
+     * Determines the notification type based on the message type.
+     *
+     * @param messageType the type of the message
+     * @return the notification type
      */
     private String determineNotificationType(String messageType) {
         switch (messageType) {
@@ -145,7 +166,11 @@ public class MatchScoreNotificationService implements Observer {
     }
 
     /**
-     * Notify players involved in the match
+     * Notifies players involved in the match.
+     *
+     * @param event   the match score event
+     * @param message the notification message
+     * @param type    the notification type
      */
     private void notifyPlayers(MatchScoreEvent event, String message, String type) {
         // Find players by name
@@ -163,7 +188,11 @@ public class MatchScoreNotificationService implements Observer {
     }
 
     /**
-     * Send a notification to a specific user
+     * Sends a notification to a specific user.
+     *
+     * @param userId  the ID of the user
+     * @param message the notification message
+     * @param type    the notification type
      */
     private void sendNotificationToUser(Long userId, String message, String type) {
         NotificationDto notification = NotificationDto.builder()
@@ -178,7 +207,10 @@ public class MatchScoreNotificationService implements Observer {
     }
 
     /**
-     * Find a user by their full name
+     * Finds a user by their full name.
+     *
+     * @param fullName the full name of the user
+     * @return the User object if found, null otherwise
      */
     private User findUserByName(String fullName) {
         if (fullName == null || fullName.trim().isEmpty()) {

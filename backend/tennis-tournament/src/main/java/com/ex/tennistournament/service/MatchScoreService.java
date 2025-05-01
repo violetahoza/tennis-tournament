@@ -37,6 +37,12 @@ public class MatchScoreService {
     private final NotificationService notificationService;
     private final UserRepository userRepository;
 
+    /**
+     * Retrieves all scores for a specific match.
+     *
+     * @param matchId the ID of the match
+     * @return a list of match score DTOs
+     */
     public List<MatchScoreDto> getScoresByMatch(Long matchId) {
         Match match = matchRepository.findById(matchId)
                 .orElseThrow(() -> new ResourceNotFoundException("Match not found with id: " + matchId));
@@ -46,12 +52,24 @@ public class MatchScoreService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Retrieves a specific match score by its ID.
+     *
+     * @param id the ID of the match score
+     * @return the match score DTO
+     */
     public MatchScoreDto getScoreById(Long id) {
         MatchScore score = matchScoreRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Score not found with id: " + id));
         return mapToDto(score);
     }
 
+    /**
+     * Creates a new match score for a specific match.
+     *
+     * @param scoreDto the match score DTO containing the score details
+     * @return the created match score DTO
+     */
     @Transactional
     public MatchScoreDto createScore(MatchScoreDto scoreDto) {
         Match match = matchRepository.findById(scoreDto.getMatchId())
@@ -111,6 +129,13 @@ public class MatchScoreService {
         return mapToDto(savedScore);
     }
 
+    /**
+     * Updates an existing match score.
+     *
+     * @param id       the ID of the match score to update
+     * @param scoreDto the match score DTO containing the updated score details
+     * @return the updated match score DTO
+     */
     @Transactional
     public MatchScoreDto updateScore(Long id, MatchScoreDto scoreDto) {
         MatchScore score = matchScoreRepository.findById(id)
@@ -149,6 +174,11 @@ public class MatchScoreService {
         return mapToDto(updatedScore);
     }
 
+    /**
+     * Deletes a specific match score by its ID.
+     *
+     * @param id the ID of the match score to delete
+     */
     @Transactional
     public void deleteScore(Long id) {
         MatchScore score = matchScoreRepository.findById(id)
@@ -179,6 +209,11 @@ public class MatchScoreService {
 //        sendScoreNotifications(match, null, "Score deleted for set " + setNumber);
     }
 
+    /**
+     * Completes a match by determining the winner and updating the match status.
+     *
+     * @param matchId the ID of the match to complete
+     */
     @Transactional
     public void completeMatch(Long matchId) {
         Match match = matchRepository.findById(matchId)
@@ -235,7 +270,11 @@ public class MatchScoreService {
     }
 
     /**
-     * Send notifications to players about score updates
+     * Sends notifications to players about score updates.
+     *
+     * @param match the match associated with the score
+     * @param score the match score
+     * @param message the notification message
      */
     private void sendScoreNotifications(Match match, MatchScore score, String message) {
         // Send to player 1
@@ -246,7 +285,10 @@ public class MatchScoreService {
     }
 
     /**
-     * Send match completion notifications to players and referee
+     * Sends match completion notifications to players and referee.
+     *
+     * @param match the completed match
+     * @param winnerName the name of the match winner
      */
     private void sendMatchCompletionNotifications(Match match, String winnerName) {
         String message = "Match completed! Winner: " + winnerName;
@@ -262,7 +304,10 @@ public class MatchScoreService {
     }
 
     /**
-     * Send match completion notifications to all admin users
+     * Sends match completion notifications to all admin users.
+     *
+     * @param match the completed match
+     * @param winnerName the name of the match winner
      */
     private void sendMatchCompletionNotificationToAdmins(Match match, String winnerName) {
         // Find all admin users
@@ -284,7 +329,11 @@ public class MatchScoreService {
     }
 
     /**
-     * Send a notification to a specific user
+     * Sends a notification to a specific user.
+     *
+     * @param userId the ID of the user
+     * @param type the type of the notification
+     * @param message the notification message
      */
     private void sendNotification(Long userId, String type, String message) {
         NotificationDto notification = NotificationDto.builder()
@@ -298,6 +347,12 @@ public class MatchScoreService {
         notificationService.sendNotification(notification);
     }
 
+    /**
+     * Maps a MatchScore entity to a MatchScoreDto.
+     *
+     * @param score the MatchScore entity
+     * @return the MatchScoreDto
+     */
     private MatchScoreDto mapToDto(MatchScore score) {
         return MatchScoreDto.builder()
                 .id(score.getId())

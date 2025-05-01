@@ -32,24 +32,22 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+/**
+ * Unit tests for the {@link PlayerFilterService} class.
+ * This class uses Mockito to mock dependencies and test the behavior of the PlayerFilterService.
+ */
 @ExtendWith(MockitoExtension.class)
 public class PlayerFilterServiceTest {
-
     @Mock
     private UserRepository userRepository;
-
     @Mock
     private TournamentRegistrationRepository tournamentRegistrationRepository;
-
     @Mock
     private TournamentRepository tournamentRepository;
-
     @Mock
     private MatchRepository matchRepository;
-
     @Mock
     private MatchScoreRepository matchScoreRepository;
-
     @InjectMocks
     private PlayerFilterService playerFilterService;
 
@@ -64,6 +62,10 @@ public class PlayerFilterServiceTest {
     private MatchScore matchScore1;
     private MatchScore matchScore2;
 
+    /**
+     * Sets up the test environment before each test.
+     * Initializes test data and mocks.
+     */
     @BeforeEach
     void setUp() {
         // Set up players
@@ -146,6 +148,10 @@ public class PlayerFilterServiceTest {
         matchScore2.setPlayer2Score(6);
     }
 
+    /**
+     * Tests retrieving all players.
+     * Verifies that the correct list of players is returned.
+     */
     @Test
     @DisplayName("Should return all players")
     void getAllPlayers_Success() {
@@ -164,6 +170,10 @@ public class PlayerFilterServiceTest {
         verify(userRepository).findByUserType(User.UserType.PLAYER);
     }
 
+    /**
+     * Tests retrieving all players when no players are found.
+     * Verifies that an empty list is returned.
+     */
     @Test
     @DisplayName("Should return empty list when no players found")
     void getAllPlayers_NoPlayersFound() {
@@ -178,6 +188,10 @@ public class PlayerFilterServiceTest {
         verify(userRepository).findByUserType(User.UserType.PLAYER);
     }
 
+    /**
+     * Tests retrieving players registered for a specific tournament.
+     * Verifies that the correct players are returned.
+     */
     @Test
     @DisplayName("Should return players registered for a tournament")
     void getPlayersByTournament_Success() {
@@ -201,6 +215,10 @@ public class PlayerFilterServiceTest {
         verify(tournamentRegistrationRepository).findByTournament(tournament);
     }
 
+    /**
+     * Tests retrieving players for a tournament that does not exist.
+     * Verifies that an IllegalArgumentException is thrown.
+     */
     @Test
     @DisplayName("Should throw exception when tournament not found")
     void getPlayersByTournament_TournamentNotFound() {
@@ -214,6 +232,10 @@ public class PlayerFilterServiceTest {
         verify(tournamentRegistrationRepository, never()).findByTournament(any());
     }
 
+    /**
+     * Tests filtering players by hand preference.
+     * Verifies that the correct players are returned based on the preference.
+     */
     @Test
     @DisplayName("Should return players by hand preference")
     void getPlayersByHandPreference_Success() {
@@ -238,6 +260,10 @@ public class PlayerFilterServiceTest {
         verify(userRepository, times(2)).findByUserType(User.UserType.PLAYER);
     }
 
+    /**
+     * Tests filtering players by an invalid hand preference.
+     * Verifies that an empty list is returned.
+     */
     @Test
     @DisplayName("Should return empty list for invalid hand preference")
     void getPlayersByHandPreference_InvalidPreference() {
@@ -253,6 +279,10 @@ public class PlayerFilterServiceTest {
         verify(userRepository).findByUserType(User.UserType.PLAYER);
     }
 
+    /**
+     * Tests filtering players by hand preference using a filter DTO.
+     * Verifies that the correct players are returned.
+     */
     @Test
     @DisplayName("Should filter players by hand preference")
     void filterPlayers_ByHandPreference() {
@@ -272,6 +302,10 @@ public class PlayerFilterServiceTest {
         verify(userRepository).findByUserType(User.UserType.PLAYER);
     }
 
+    /**
+     * Tests filtering players by tournament and registration status using a filter DTO.
+     * Verifies that the correct players are returned.
+     */
     @Test
     @DisplayName("Should filter players by tournament and status")
     void filterPlayers_ByTournamentAndStatus() {
@@ -299,6 +333,10 @@ public class PlayerFilterServiceTest {
         verify(tournamentRegistrationRepository).findByTournament(tournament);
     }
 
+    /**
+     * Tests filtering players by an invalid tournament status.
+     * Verifies that all players registered for the tournament are returned.
+     */
     @Test
     @DisplayName("Should handle invalid tournament status")
     void filterPlayers_InvalidTournamentStatus() {
@@ -323,6 +361,10 @@ public class PlayerFilterServiceTest {
         verify(tournamentRegistrationRepository).findByTournament(tournament);
     }
 
+    /**
+     * Tests filtering players when the tournament is not found.
+     * Verifies that an IllegalArgumentException is thrown.
+     */
     @Test
     @DisplayName("Should handle tournament not found in filter")
     void filterPlayers_TournamentNotFound() {
@@ -342,6 +384,10 @@ public class PlayerFilterServiceTest {
         verify(tournamentRepository).findById(999L);
     }
 
+    /**
+     * Tests retrieving player statistics for a specific player.
+     * Verifies that the correct statistics are calculated and returned.
+     */
     @Test
     @DisplayName("Should return player statistics")
     void getPlayerStatistics_Success() {
@@ -381,6 +427,10 @@ public class PlayerFilterServiceTest {
         verify(matchScoreRepository).findByMatchOrderBySetNumber(match2);
     }
 
+    /**
+     * Tests retrieving player statistics when the player is not found.
+     * Verifies that an IllegalArgumentException is thrown.
+     */
     @Test
     @DisplayName("Should throw exception when player not found")
     void getPlayerStatistics_PlayerNotFound() {
@@ -394,6 +444,10 @@ public class PlayerFilterServiceTest {
         verify(userRepository).findById(999L);
     }
 
+    /**
+     * Tests retrieving player statistics when the user is not a player.
+     * Verifies that an IllegalArgumentException is thrown.
+     */
     @Test
     @DisplayName("Should throw exception when user is not a player")
     void getPlayerStatistics_NotAPlayer() {
@@ -411,6 +465,10 @@ public class PlayerFilterServiceTest {
         verify(userRepository).findById(admin.getId());
     }
 
+    /**
+     * Tests calculating win rate when the player has no completed matches.
+     * Verifies that the win rate is 0%.
+     */
     @Test
     @DisplayName("Should calculate correct win rate with no completed matches")
     void getPlayerStatistics_NoCompletedMatches() {
@@ -433,6 +491,10 @@ public class PlayerFilterServiceTest {
         assertEquals(1, result.getTournaments());
     }
 
+    /**
+     * Tests handling matches without scores when calculating player statistics.
+     * Verifies that matches without scores are handled gracefully.
+     */
     @Test
     @DisplayName("Should handle matches without scores")
     void getPlayerStatistics_MatchesWithoutScores() {
@@ -464,6 +526,10 @@ public class PlayerFilterServiceTest {
         assertTrue(result.getWinRate() == 0 || result.getWinRate() == 100);
     }
 
+    /**
+     * Tests filtering players by a partial search term.
+     * Verifies that players matching the search term are returned.
+     */
     @Test
     @DisplayName("Should filter players by search term with partial match")
     void filterPlayers_ByPartialSearchTerm() {

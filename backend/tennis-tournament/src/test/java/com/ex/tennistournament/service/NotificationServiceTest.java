@@ -25,24 +25,28 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
+/**
+ * Unit tests for the {@link NotificationService} class.
+ * This class uses Mockito to mock dependencies and test the behavior of the NotificationService.
+ */
 @ExtendWith(MockitoExtension.class)
 public class NotificationServiceTest {
-
     @Mock
     private SimpMessagingTemplate messagingTemplate;
-
     @Mock
     private ObjectMapper objectMapper;
-
     @Mock
     private NotificationRepository notificationRepository;
-
     @InjectMocks
     private NotificationService notificationService;
 
     private NotificationDto testNotification;
     private LocalDateTime fixedTime;
 
+    /**
+     * Sets up the test environment before each test.
+     * Initializes test data and mocks.
+     */
     @BeforeEach
     void setUp() {
         fixedTime = LocalDateTime.of(2025, 5, 1, 12, 0);
@@ -55,6 +59,10 @@ public class NotificationServiceTest {
         // Deliberately not setting timestamp to test auto-setting
     }
 
+    /**
+     * Tests sending a notification and persisting it to the database.
+     * Verifies that the notification is saved and sent via WebSocket.
+     */
     @Test
     @DisplayName("Should send a notification and persist it to the database")
     void sendNotification_Success() {
@@ -92,6 +100,10 @@ public class NotificationServiceTest {
         assertEquals(42L, testNotification.getId());
     }
 
+    /**
+     * Tests sending a notification with an existing timestamp.
+     * Verifies that the provided timestamp is used.
+     */
     @Test
     @DisplayName("Should use provided timestamp if available")
     void sendNotification_WithExistingTimestamp() {
@@ -117,6 +129,10 @@ public class NotificationServiceTest {
         assertEquals(fixedTime, capturedNotification.getTimestamp(), "Should use the provided timestamp");
     }
 
+    /**
+     * Tests handling exceptions gracefully when sending a notification.
+     * Verifies that no exception is thrown.
+     */
     @Test
     @DisplayName("Should handle exceptions gracefully when sending notification")
     void sendNotification_HandlesExceptions() {
@@ -127,6 +143,10 @@ public class NotificationServiceTest {
         assertDoesNotThrow(() -> notificationService.sendNotification(testNotification));
     }
 
+    /**
+     * Tests marking a specific notification as read.
+     * Verifies that the notification is updated in the database.
+     */
     @Test
     @DisplayName("Should mark a specific notification as read")
     void markNotificationAsRead_Success() {
@@ -150,6 +170,10 @@ public class NotificationServiceTest {
         verify(notificationRepository).save(notification);
     }
 
+    /**
+     * Tests marking a notification as read when it does not exist.
+     * Verifies that no action is taken.
+     */
     @Test
     @DisplayName("Should not mark notification as read if it doesn't exist")
     void markNotificationAsRead_NotFound() {
@@ -167,6 +191,10 @@ public class NotificationServiceTest {
         verify(notificationRepository, never()).save(any(Notification.class));
     }
 
+    /**
+     * Tests marking all unread notifications as read for a user.
+     * Verifies that all unread notifications are updated in the database.
+     */
     @Test
     @DisplayName("Should mark all unread notifications as read")
     void markAllNotificationsAsRead_Success() {
@@ -196,6 +224,10 @@ public class NotificationServiceTest {
         verify(notificationRepository, times(2)).save(any(Notification.class));
     }
 
+    /**
+     * Tests marking all notifications as read when no unread notifications exist.
+     * Verifies that no action is taken.
+     */
     @Test
     @DisplayName("Should do nothing when no unread notifications found")
     void markAllNotificationsAsRead_NoUnread() {

@@ -43,36 +43,30 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+/**
+ * Unit tests for the {@link UserService} class.
+ * This class uses Mockito to mock dependencies and test the behavior of the UserService.
+ */
 @ExtendWith(MockitoExtension.class)
 public class UserServiceTest {
-
     @Mock
     private UserRepository userRepository;
-
     @Mock
     private MatchRepository matchRepository;
-
     @Mock
     private TournamentRegistrationRepository registrationRepository;
-
     @Mock
     private PasswordEncoder passwordEncoder;
-
     @Mock
     private AuthenticationManager authenticationManager;
-
     @Mock
     private JwtUtils jwtUtils;
-
     @Mock
     private Authentication authentication;
-
     @Mock
     private SecurityContext securityContext;
-
     @InjectMocks
     private UserService userService;
-
     @Captor
     private ArgumentCaptor<User> userCaptor;
 
@@ -83,6 +77,10 @@ public class UserServiceTest {
     private LoginDto loginDto;
     private PasswordUpdateDto passwordUpdateDto;
 
+    /**
+     * Sets up the test environment before each test.
+     * Initializes test data and mocks.
+     */
     @BeforeEach
     void setUp() {
         // Set up admin user
@@ -138,6 +136,9 @@ public class UserServiceTest {
         passwordUpdateDto.setNewPassword("New_password123"); // Updated to meet password requirements
     }
 
+    /**
+     * Tests successful registration of a new user.
+     */
     @Test
     @DisplayName("Should register a new user successfully")
     void registerUser_Success() {
@@ -181,6 +182,9 @@ public class UserServiceTest {
         assertEquals(registrationDto.getEmail(), capturedUser.getEmail());
     }
 
+    /**
+     * Tests that an exception is thrown when the username is already taken.
+     */
     @Test
     @DisplayName("Should throw exception when username is already taken")
     void registerUser_UsernameAlreadyTaken() {
@@ -198,6 +202,9 @@ public class UserServiceTest {
         verify(userRepository, never()).save(any(User.class));
     }
 
+    /**
+     * Tests that an exception is thrown when the email is already in use.
+     */
     @Test
     @DisplayName("Should throw exception when email is already in use")
     void registerUser_EmailAlreadyInUse() {
@@ -217,6 +224,9 @@ public class UserServiceTest {
         verify(userRepository, never()).save(any(User.class));
     }
 
+    /**
+     * Tests successful authentication of a user and JWT generation.
+     */
     @Test
     @DisplayName("Should authenticate user and return JWT")
     void authenticateUser_Success() {
@@ -250,6 +260,9 @@ public class UserServiceTest {
         verify(jwtUtils).generateJwtToken(authentication);
     }
 
+    /**
+     * Tests that an exception is thrown when authentication fails.
+     */
     @Test
     @DisplayName("Should throw exception when authentication fails")
     void authenticateUser_AuthenticationFails() {
@@ -266,6 +279,9 @@ public class UserServiceTest {
         verifyNoInteractions(jwtUtils);
     }
 
+    /**
+     * Tests retrieving a user by ID successfully.
+     */
     @Test
     @DisplayName("Should return user by ID")
     void getUserById_Success() {
@@ -288,6 +304,9 @@ public class UserServiceTest {
         verify(userRepository).findById(playerUser.getId());
     }
 
+    /**
+     * Tests that an exception is thrown when the user is not found by ID.
+     */
     @Test
     @DisplayName("Should throw exception when user not found")
     void getUserById_UserNotFound() {
@@ -302,6 +321,9 @@ public class UserServiceTest {
         verify(userRepository).findById(999L);
     }
 
+    /**
+     * Tests retrieving all users successfully.
+     */
     @Test
     @DisplayName("Should return all users")
     void getAllUsers_Success() {
@@ -320,6 +342,9 @@ public class UserServiceTest {
         verify(userRepository).findAll();
     }
 
+    /**
+     * Tests retrieving users by type successfully.
+     */
     @Test
     @DisplayName("Should return users by type")
     void getUsersByType_Success() {
@@ -338,6 +363,9 @@ public class UserServiceTest {
         verify(userRepository).findByUserType(User.UserType.PLAYER);
     }
 
+    /**
+     * Tests successful update of a user's own profile.
+     */
     @Test
     @DisplayName("Should update user profile when user updates their own profile")
     void updateUser_SelfUpdate_Success() {
@@ -394,6 +422,9 @@ public class UserServiceTest {
         assertEquals(playerUser.getPassword(), capturedUser.getPassword()); // Password should remain unchanged
     }
 
+    /**
+     * Tests that an admin can update another user's role.
+     */
     @Test
     @DisplayName("Should allow admin to update user's role")
     void updateUser_AdminCanChangeRole() {
@@ -436,6 +467,9 @@ public class UserServiceTest {
         assertEquals(User.UserType.REFEREE, capturedUser.getUserType());
     }
 
+    /**
+     * Tests that a non-admin cannot update another user's profile.
+     */
     @Test
     @DisplayName("Should not allow non-admin to update another user's profile")
     void updateUser_NonAdminCannotUpdateOthers() {
@@ -462,6 +496,9 @@ public class UserServiceTest {
         verify(userRepository, never()).save(any(User.class));
     }
 
+    /**
+     * Tests that an exception is thrown when the username is already taken by another user.
+     */
     @Test
     @DisplayName("Should not allow username that is already taken by another user")
     void updateUser_UsernameAlreadyTaken() {
@@ -491,6 +528,9 @@ public class UserServiceTest {
         verify(userRepository, never()).save(any(User.class));
     }
 
+    /**
+     * Tests successful password update for a user.
+     */
     @Test
     @DisplayName("Should update password")
     void updatePassword_Success() {
@@ -534,6 +574,9 @@ public class UserServiceTest {
         assertEquals("new_encoded_password", capturedUser.getPassword());
     }
 
+    /**
+     * Tests that an exception is thrown when the current password is incorrect.
+     */
     @Test
     @DisplayName("Should throw exception when current password is incorrect")
     void updatePassword_IncorrectCurrentPassword() {
@@ -562,6 +605,9 @@ public class UserServiceTest {
         verify(userRepository, never()).save(any(User.class));
     }
 
+    /**
+     * Tests that a user cannot update another user's password.
+     */
     @Test
     @DisplayName("Should not allow updating password of another user")
     void updatePassword_CannotUpdateOthersPassword() {
@@ -585,6 +631,9 @@ public class UserServiceTest {
         verify(userRepository, never()).save(any(User.class));
     }
 
+    /**
+     * Tests successful deletion of a user.
+     */
     @Test
     @DisplayName("Should delete user successfully")
     void deleteUser_Success() {
@@ -603,6 +652,9 @@ public class UserServiceTest {
         verify(userRepository).deleteById(playerUser.getId());
     }
 
+    /**
+     * Tests that the last admin cannot be deleted.
+     */
     @Test
     @DisplayName("Should not delete the last admin")
     void deleteUser_CannotDeleteLastAdmin() {
@@ -623,6 +675,9 @@ public class UserServiceTest {
         verify(userRepository, never()).deleteById(anyLong());
     }
 
+    /**
+     * Tests that a referee with active matches cannot be deleted.
+     */
     @Test
     @DisplayName("Should not delete referee with active matches")
     void deleteUser_CannotDeleteRefereeWithActiveMatches() {
@@ -647,6 +702,9 @@ public class UserServiceTest {
         verify(userRepository, never()).deleteById(anyLong());
     }
 
+    /**
+     * Tests that a player with active registrations cannot be deleted.
+     */
     @Test
     @DisplayName("Should not delete player with active registrations")
     void deleteUser_CannotDeletePlayerWithActiveRegistrations() {
@@ -679,6 +737,9 @@ public class UserServiceTest {
         verify(userRepository, never()).deleteById(anyLong());
     }
 
+    /**
+     * Tests that a referee with only completed matches can be deleted.
+     */
     @Test
     @DisplayName("Can delete referee with only completed matches")
     void deleteUser_CanDeleteRefereeWithCompletedMatches() {
@@ -700,6 +761,9 @@ public class UserServiceTest {
         verify(userRepository).deleteById(refereeUser.getId());
     }
 
+    /**
+     * Tests that a player with rejected registrations can be deleted.
+     */
     @Test
     @DisplayName("Can delete player with rejected registrations")
     void deleteUser_CanDeletePlayerWithRejectedRegistrations() {
@@ -729,6 +793,9 @@ public class UserServiceTest {
         verify(userRepository).deleteById(playerUser.getId());
     }
 
+    /**
+     * Tests that an exception is thrown when the user to be deleted is not found.
+     */
     @Test
     @DisplayName("Should throw exception when user not found for deletion")
     void deleteUser_UserNotFound() {

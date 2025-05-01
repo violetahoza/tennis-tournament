@@ -52,12 +52,23 @@ public class MatchService {
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("EEEE, MMMM d, yyyy");
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
 
+    /**
+     * Retrieves all matches in the system.
+     *
+     * @return a list of match DTOs
+     */
     public List<MatchDto> getAllMatches() {
         return matchRepository.findAll().stream()
                 .map(this::mapToDto)
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Retrieves all matches for a specific tournament.
+     *
+     * @param tournamentId the ID of the tournament
+     * @return a list of match DTOs
+     */
     public List<MatchDto> getMatchesByTournament(Long tournamentId) {
         Tournament tournament = tournamentRepository.findById(tournamentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Tournament not found with id: " + tournamentId));
@@ -67,6 +78,12 @@ public class MatchService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Retrieves all matches for a specific player.
+     *
+     * @param playerId the ID of the player
+     * @return a list of match DTOs
+     */
     public List<MatchDto> getMatchesByPlayer(Long playerId) {
         User player = userRepository.findById(playerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Player not found with id: " + playerId));
@@ -76,6 +93,12 @@ public class MatchService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Retrieves all matches assigned to a specific referee.
+     *
+     * @param refereeId the ID of the referee
+     * @return a list of match DTOs
+     */
     public List<MatchDto> getMatchesByReferee(Long refereeId) {
         User referee = userRepository.findById(refereeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Referee not found with id: " + refereeId));
@@ -85,12 +108,24 @@ public class MatchService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Retrieves a specific match by its ID.
+     *
+     * @param id the ID of the match
+     * @return the match DTO
+     */
     public MatchDto getMatchById(Long id) {
         Match match = matchRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Match not found with id: " + id));
         return mapToDto(match);
     }
 
+    /**
+     * Retrieves a summary of a specific match, including scores and winner.
+     *
+     * @param id the ID of the match
+     * @return the match summary DTO
+     */
     public MatchSummaryDto getMatchSummary(Long id) {
         Match match = matchRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Match not found with id: " + id));
@@ -113,6 +148,12 @@ public class MatchService {
                 .build();
     }
 
+    /**
+     * Creates a new match in the system.
+     *
+     * @param matchDto the match DTO containing match details
+     * @return the created match DTO
+     */
     @Transactional
     public MatchDto createMatch(MatchDto matchDto) {
         Tournament tournament = tournamentRepository.findById(matchDto.getTournamentId())

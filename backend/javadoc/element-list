@@ -1,0 +1,12 @@
+com.ex.tennistournament
+com.ex.tennistournament.builder
+com.ex.tennistournament.config
+com.ex.tennistournament.controller
+com.ex.tennistournament.dto
+com.ex.tennistournament.exception
+com.ex.tennistournament.model
+com.ex.tennistournament.observer
+com.ex.tennistournament.repository
+com.ex.tennistournament.security
+com.ex.tennistournament.service
+com.ex.tennistournament.websocket

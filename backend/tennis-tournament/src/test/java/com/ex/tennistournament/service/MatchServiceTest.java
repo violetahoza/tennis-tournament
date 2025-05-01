@@ -22,30 +22,26 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
+/**
+ * Unit tests for the {@link MatchService} class.
+ * This class uses Mockito to mock dependencies and test the behavior of the MatchService.
+ */
 @ExtendWith(MockitoExtension.class)
 public class MatchServiceTest {
-
     @Mock
     private MatchRepository matchRepository;
-
     @Mock
     private MatchScoreRepository matchScoreRepository;
-
     @Mock
     private TournamentRepository tournamentRepository;
-
     @Mock
     private UserRepository userRepository;
-
     @Mock
     private TournamentRegistrationRepository registrationRepository;
-
     @Mock
     private NotificationService notificationService;
-
     @Mock
     private EmailService emailService;
-
     @InjectMocks
     private MatchService matchService;
 
@@ -56,6 +52,10 @@ public class MatchServiceTest {
     private Match match;
     private MatchDto matchDto;
 
+    /**
+     * Sets up the test environment before each test.
+     * Initializes test data and mocks.
+     */
     @BeforeEach
     void setUp() {
         // Setup tournament
@@ -110,6 +110,10 @@ public class MatchServiceTest {
                 .build();
     }
 
+    /**
+     * Tests retrieving all matches.
+     * Verifies that the correct list of matches is returned.
+     */
     @Test
     void getAllMatches_shouldReturnAllMatches() {
         // Arrange
@@ -124,6 +128,10 @@ public class MatchServiceTest {
         verify(matchRepository, times(1)).findAll();
     }
 
+    /**
+     * Tests retrieving matches by tournament ID.
+     * Verifies that the correct matches are returned for the tournament.
+     */
     @Test
     void getMatchesByTournament_shouldReturnTournamentMatches() {
         // Arrange
@@ -140,6 +148,10 @@ public class MatchServiceTest {
         verify(matchRepository, times(1)).findByTournament(tournament);
     }
 
+    /**
+     * Tests retrieving matches by referee ID.
+     * Verifies that the correct matches are returned for the referee.
+     */
     @Test
     void getMatchesByReferee_shouldReturnRefereeMatches() {
         // Arrange
@@ -156,6 +168,10 @@ public class MatchServiceTest {
         verify(matchRepository, times(1)).findByReferee(referee);
     }
 
+    /**
+     * Tests retrieving a match by its ID.
+     * Verifies that the correct match is returned when it exists.
+     */
     @Test
     void getMatchById_shouldReturnMatch() {
         // Arrange
@@ -169,6 +185,10 @@ public class MatchServiceTest {
         verify(matchRepository, times(1)).findById(1L);
     }
 
+    /**
+     * Tests deleting a scheduled match.
+     * Verifies that the match is deleted successfully and notifications are sent.
+     */
     @Test
     @Transactional
     void deleteMatch_shouldDeleteScheduledMatch() {
@@ -184,6 +204,10 @@ public class MatchServiceTest {
         verify(notificationService, atLeast(3)).sendNotification(any());
     }
 
+    /**
+     * Tests deleting a match that is in progress.
+     * Verifies that an IllegalStateException is thrown.
+     */
     @Test
     @Transactional
     void deleteMatch_whenInProgress_shouldThrowException() {
@@ -196,6 +220,10 @@ public class MatchServiceTest {
         verify(matchRepository, never()).deleteById(any());
     }
 
+    /**
+     * Tests deleting a match that has scores.
+     * Verifies that an IllegalStateException is thrown.
+     */
     @Test
     @Transactional
     void deleteMatch_whenHasScores_shouldThrowException() {

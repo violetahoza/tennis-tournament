@@ -25,21 +25,20 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+/**
+ * Unit tests for the {@link EmailService} class.
+ * This class uses Mockito to mock dependencies and test the behavior of the EmailService.
+ */
 @ExtendWith(MockitoExtension.class)
 public class EmailServiceTest {
-
     @Mock
     private JavaMailSender mailSender;
-
     @Mock
     private TemplateEngine templateEngine;
-
     @InjectMocks
     private EmailService emailService;
-
     @Mock
     private MimeMessage mimeMessage;
-
     @Captor
     private ArgumentCaptor<MimeMessage> mimeMessageCaptor;
 
@@ -47,33 +46,41 @@ public class EmailServiceTest {
     private String testSubject = "Test Subject";
     private Map<String, Object> testVariables;
 
+    /**
+     * Sets up the test environment before each test.
+     * Initializes test variables and configures reflection-based fields in the EmailService.
+     */
     @BeforeEach
     void setUp() {
         testVariables = new HashMap<>();
         testVariables.put("playerName", "John Doe");
         testVariables.put("tournamentName", "Summer Slam");
         testVariables.put("status", "ACCEPTED");
-
         // Set the fromEmail field using reflection
         ReflectionTestUtils.setField(emailService, "fromEmail", "noreply@tennistournament.com");
         // Enable email sending for tests
         ReflectionTestUtils.setField(emailService, "emailEnabled", true);
     }
 
+    /**
+     * Tests the successful sending of a template email.
+     * Verifies that the email content is processed and sent correctly.
+     */
     @Test
     void sendTemplateEmail_Success() throws MessagingException {
         // Setup
         when(mailSender.createMimeMessage()).thenReturn(mimeMessage);
         when(templateEngine.process(eq("base-template"), any(Context.class))).thenReturn("<html>Email content</html>");
-
         // Execute
         emailService.sendTemplateEmail(testEmail, testSubject, "registration-confirmation", testVariables);
-
         // Verify
         verify(mailSender).send(mimeMessageCaptor.capture());
         verify(templateEngine).process(eq("base-template"), any(Context.class));
     }
 
+    /**
+     * Tests fallback to a direct template when the base template fails.
+     */
     @Test
     void sendTemplateEmail_BaseTemplateFailsFallbackToDirectTemplate() throws MessagingException {
         // Setup
@@ -82,15 +89,16 @@ public class EmailServiceTest {
                 .thenThrow(new TemplateInputException("Base template not found"));
         when(templateEngine.process(eq("registration-confirmation"), any(Context.class)))
                 .thenReturn("<html>Direct template content</html>");
-
         // Execute
         emailService.sendTemplateEmail(testEmail, testSubject, "registration-confirmation", testVariables);
-
         // Verify
         verify(mailSender).send(mimeMessageCaptor.capture());
         verify(templateEngine).process(eq("registration-confirmation"), any(Context.class));
     }
 
+    /**
+     * Tests fallback to a default email when all templates fail.
+     */
     @Test
     void sendTemplateEmail_AllTemplatesFail_UseFallback() throws MessagingException {
         // Setup
@@ -99,10 +107,8 @@ public class EmailServiceTest {
                 .thenThrow(new TemplateInputException("Base template not found"));
         when(templateEngine.process(eq("registration-confirmation"), any(Context.class)))
                 .thenThrow(new TemplateInputException("Template not found"));
-
         // Execute
         emailService.sendTemplateEmail(testEmail, testSubject, "registration-confirmation", testVariables);
-
         // Verify
         verify(mailSender).send(mimeMessageCaptor.capture());
         // Both template processing attempts should fail
@@ -110,87 +116,96 @@ public class EmailServiceTest {
         verify(templateEngine).process(eq("registration-confirmation"), any(Context.class));
     }
 
+    /**
+     * Tests that no email is sent when email sending is disabled.
+     */
     @Test
     void sendTemplateEmail_DisabledEmails_ShouldNotSend() {
         // Disable email sending
         ReflectionTestUtils.setField(emailService, "emailEnabled", false);
-
         // Execute
         emailService.sendTemplateEmail(testEmail, testSubject, "registration-confirmation", testVariables);
-
         // Verify no interactions with mailSender
         verifyNoInteractions(mailSender);
         verifyNoInteractions(templateEngine);
     }
 
+    /**
+     * Tests graceful handling of a {@link MessagingException} during email sending.
+     */
     @Test
     void sendTemplateEmail_MessagingException_HandleGracefully() throws MessagingException {
         // Setup
         when(mailSender.createMimeMessage()).thenReturn(mimeMessage);
         when(templateEngine.process(eq("base-template"), any(Context.class))).thenReturn("<html>Email content</html>");
         doThrow(new MessagingException("Failed to send")).when(mailSender).send(any(MimeMessage.class));
-
         // Execute - should not throw exception
         assertDoesNotThrow(() ->
                 emailService.sendTemplateEmail(testEmail, testSubject, "registration-confirmation", testVariables)
         );
-
         // Verify attempt was made
         verify(mailSender).send(any(MimeMessage.class));
     }
 
+    /**
+     * Tests the successful sending of a simple email.
+     */
     @Test
     void sendSimpleEmail_Success() throws MessagingException {
         // Setup
         when(mailSender.createMimeMessage()).thenReturn(mimeMessage);
         String simpleText = "This is a simple email";
-
         // Execute
         emailService.sendSimpleEmail(testEmail, testSubject, simpleText);
-
         // Verify
         verify(mailSender).send(mimeMessageCaptor.capture());
     }
 
+    /**
+     * Tests that no simple email is sent when email sending is disabled.
+     */
     @Test
     void sendSimpleEmail_Disabled_ShouldNotSend() {
         // Disable email sending
         ReflectionTestUtils.setField(emailService, "emailEnabled", false);
-
         // Execute
         emailService.sendSimpleEmail(testEmail, testSubject, "Simple message");
-
         // Verify no interactions
         verifyNoInteractions(mailSender);
     }
 
+    /**
+     * Tests the successful processing of a template.
+     */
     @Test
     void testTemplate_Success() {
         // Setup
         String expectedContent = "<html>Test template content</html>";
         when(templateEngine.process(eq("test-template"), any(Context.class))).thenReturn(expectedContent);
-
         // Execute
         String result = emailService.testTemplate("test-template", testVariables);
-
         // Verify
         assertEquals(expectedContent, result);
         verify(templateEngine).process(eq("test-template"), any(Context.class));
     }
 
+    /**
+     * Tests handling of exceptions during template processing.
+     */
     @Test
     void testTemplate_Exception_ReturnsErrorMessage() {
         // Setup
         when(templateEngine.process(eq("invalid-template"), any(Context.class)))
                 .thenThrow(new RuntimeException("Template processing failed"));
-
         // Execute
         String result = emailService.testTemplate("invalid-template", testVariables);
-
         // Verify
         assertTrue(result.contains("Template processing failed"));
     }
 
+    /**
+     * Tests successful email configuration validation.
+     */
     @Test
     void testEmailConfiguration_Success() {
         // Setup
@@ -202,48 +217,44 @@ public class EmailServiceTest {
         when(mailSenderImpl.getPort()).thenReturn(587);
         when(mailSenderImpl.getUsername()).thenReturn("user@example.com");
         when(mailSenderImpl.createMimeMessage()).thenReturn(mimeMessage);
-
         // Replace the mock with our custom implementation
         ReflectionTestUtils.setField(emailService, "mailSender", mailSenderImpl);
-
         // Execute
         boolean result = emailService.testEmailConfiguration();
-
         // Verify
         assertTrue(result);
-
         // Reset to original mock for other tests
         ReflectionTestUtils.setField(emailService, "mailSender", mailSender);
     }
 
+    /**
+     * Tests email configuration validation when the host is missing.
+     */
     @Test
     void testEmailConfiguration_MissingHost_ReturnsFalse() {
         // Setup
         JavaMailSenderImpl mailSenderImpl = mock(JavaMailSenderImpl.class);
         when(mailSenderImpl.getHost()).thenReturn("");  // Empty host
         when(mailSenderImpl.createMimeMessage()).thenReturn(mimeMessage);
-
         // Replace the mock
         ReflectionTestUtils.setField(emailService, "mailSender", mailSenderImpl);
-
         // Execute
         boolean result = emailService.testEmailConfiguration();
-
         // Verify
         assertFalse(result);
-
         // Reset
         ReflectionTestUtils.setField(emailService, "mailSender", mailSender);
     }
 
+    /**
+     * Tests email configuration validation when an exception is thrown.
+     */
     @Test
     void testEmailConfiguration_ExceptionThrown_ReturnsFalse() {
         // Setup
         when(mailSender.createMimeMessage()).thenThrow(new RuntimeException("Connection failed"));
-
         // Execute
         boolean result = emailService.testEmailConfiguration();
-
         // Verify
         assertFalse(result);
     }

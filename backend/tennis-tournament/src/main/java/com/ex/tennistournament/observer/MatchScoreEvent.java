@@ -18,6 +18,18 @@ public class MatchScoreEvent {
     private final String type;
     private final String winnerName;
 
+    /**
+     * Constructs a new MatchScoreEvent with the provided details.
+     *
+     * @param matchId      the unique identifier of the match
+     * @param setNumber    the set number in the match
+     * @param player1Score the score of player 1
+     * @param player2Score the score of player 2
+     * @param player1Name  the name of player 1
+     * @param player2Name  the name of player 2
+     * @param type         the type of event
+     * @param winnerName   the name of the winner, if applicable
+     */
     public MatchScoreEvent(
             Long matchId,
             Long setNumber,

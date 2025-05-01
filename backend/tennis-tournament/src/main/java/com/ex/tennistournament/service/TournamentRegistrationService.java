@@ -38,6 +38,12 @@ public class TournamentRegistrationService {
     private final NotificationService notificationService;
     private final EmailService emailService;
 
+    /**
+     * Retrieves all registrations for a specific player.
+     *
+     * @param playerId the ID of the player
+     * @return a list of tournament registration DTOs
+     */
     public List<TournamentRegistrationDto> getRegistrationsByPlayer(Long playerId) {
         User player = userRepository.findById(playerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Player not found with id: " + playerId));
@@ -47,6 +53,12 @@ public class TournamentRegistrationService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Retrieves all registrations for a specific tournament.
+     *
+     * @param tournamentId the ID of the tournament
+     * @return a list of tournament registration DTOs
+     */
     public List<TournamentRegistrationDto> getRegistrationsByTournament(Long tournamentId) {
         Tournament tournament = tournamentRepository.findById(tournamentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Tournament not found with id: " + tournamentId));
@@ -56,6 +68,14 @@ public class TournamentRegistrationService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Registers a player for a tournament.
+     *
+     * @param playerId     the ID of the player
+     * @param tournamentId the ID of the tournament
+     * @return the created tournament registration DTO
+     * @throws IllegalArgumentException if the player is not eligible or registration is closed
+     */
     @Transactional
     public TournamentRegistrationDto registerPlayerForTournament(Long playerId, Long tournamentId) {
         User player = userRepository.findById(playerId)
@@ -102,6 +122,13 @@ public class TournamentRegistrationService {
         return mapToDto(savedRegistration);
     }
 
+    /**
+     * Updates the status of a tournament registration.
+     *
+     * @param registrationId the ID of the registration
+     * @param status         the new registration status
+     * @return the updated tournament registration DTO
+     */
     @Transactional
     public TournamentRegistrationDto updateRegistrationStatus(Long registrationId, TournamentRegistration.RegistrationStatus status) {
         TournamentRegistration registration = registrationRepository.findById(registrationId)
@@ -137,6 +164,11 @@ public class TournamentRegistrationService {
         return mapToDto(updatedRegistration);
     }
 
+    /**
+     * Promotes waitlisted registrations to approved status if slots are available.
+     *
+     * @param tournamentId the ID of the tournament
+     */
     protected void promoteWaitlistedRegistrations(Long tournamentId) {
         Tournament tournament = tournamentRepository.findById(tournamentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Tournament not found with id: " + tournamentId));
@@ -193,6 +225,13 @@ public class TournamentRegistrationService {
         }
     }
 
+    /**
+     * Cancels a tournament registration.
+     *
+     * @param registrationId the ID of the registration to cancel
+     * @throws AccessDeniedException if the user is not authorized to cancel the registration
+     * @throws IllegalStateException if the tournament has already started
+     */
     @Transactional
     public void cancelRegistration(Long registrationId) {
         TournamentRegistration registration = registrationRepository.findById(registrationId)
@@ -237,6 +276,12 @@ public class TournamentRegistrationService {
         }
     }
 
+    /**
+     * Counts the number of approved registrations for a specific tournament.
+     *
+     * @param tournamentId the ID of the tournament
+     * @return the count of approved registrations
+     */
     public long countApprovedRegistrationsByTournamentId(Long tournamentId) {
         Tournament tournament = tournamentRepository.findById(tournamentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Tournament not found"));
@@ -247,7 +292,9 @@ public class TournamentRegistrationService {
     }
 
     /**
-     * Send notification to player about their initial registration
+     * Sends a notification to the player about their registration.
+     *
+     * @param registration the tournament registration
      */
     private void sendRegistrationNotification(TournamentRegistration registration) {
         String tournamentName = registration.getTournament().getName();
@@ -294,7 +341,9 @@ public class TournamentRegistrationService {
     }
 
     /**
-     * Send notification to player about registration status change
+     * Sends a notification to the player about their registration.
+     *
+     * @param registration the tournament registration
      */
     private void sendRegistrationStatusChangeNotification(TournamentRegistration registration, TournamentRegistration.RegistrationStatus oldStatus) {
         String tournamentName = registration.getTournament().getName();
@@ -370,7 +419,9 @@ public class TournamentRegistrationService {
     }
 
     /**
-     * Send notification about registration cancellation
+     * Sends a notification to the player about registration cancellation.
+     *
+     * @param registration the tournament registration
      */
     private void sendRegistrationCancellationNotification(TournamentRegistration registration) {
         String tournamentName = registration.getTournament().getName();
@@ -406,6 +457,11 @@ public class TournamentRegistrationService {
         );
     }
 
+    /**
+     * Notifies admins about a new registration.
+     *
+     * @param registration the tournament registration
+     */
     private void notifyAdminsAboutRegistration(TournamentRegistration registration) {
         // Find all admin users
         List<User> admins = userRepository.findByUserType(User.UserType.ADMIN);
@@ -435,6 +491,11 @@ public class TournamentRegistrationService {
         }
     }
 
+    /**
+     * Notifies admins about a registration cancellation.
+     *
+     * @param registration the tournament registration
+     */
     private void notifyAdminsAboutCancellation(TournamentRegistration registration) {
         // Find all admin users
         List<User> admins = userRepository.findByUserType(User.UserType.ADMIN);
@@ -468,6 +529,12 @@ public class TournamentRegistrationService {
         }
     }
 
+    /**
+     * Maps a TournamentRegistration entity to a TournamentRegistrationDto.
+     *
+     * @param registration the tournament registration entity
+     * @return the mapped tournament registration DTO
+     */
     private TournamentRegistrationDto mapToDto(TournamentRegistration registration) {
         return TournamentRegistrationDto.builder()
                 .id(registration.getId())
