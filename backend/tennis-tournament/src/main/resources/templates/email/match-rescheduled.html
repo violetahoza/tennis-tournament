@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Match Rescheduled</title>
+</head>
+<body>
+<h2>Match Rescheduled</h2>
+<p>Dear <span th:text="${recipientName}">Recipient</span>,</p>
+
+<p>The match between <span th:text="${player1Name}">Player 1</span> and <span th:text="${player2Name}">Player 2</span> has been rescheduled.</p>
+
+<p>Previous Schedule:</p>
+<ul>
+    <li>Date: <span th:text="${oldMatchDate}">Old Date</span></li>
+    <li>Time: <span th:text="${oldMatchTime}">Old Time</span></li>
+</ul>
+
+<p>New Schedule:</p>
+<ul>
+    <li>Date: <span th:text="${newMatchDate}">New Date</span></li>
+    <li>Time: <span th:text="${newMatchTime}">New Time</span></li>
+    <li>Court: <span th:text="${courtNumber}">Court</span></li>
+</ul>
+
+<p>Thank you for your understanding.</p>
+<p>Best regards,<br>Tennis Tournament Team</p>
+</body>
+</html>

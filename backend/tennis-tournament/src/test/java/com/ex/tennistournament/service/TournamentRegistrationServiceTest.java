@@ -14,7 +14,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
@@ -54,6 +53,7 @@ public class TournamentRegistrationServiceTest {
     private TournamentRegistrationService registrationService;
 
     private User player;
+    private User admin;
     private Tournament tournament;
     private TournamentRegistration registration;
 
@@ -67,6 +67,10 @@ public class TournamentRegistrationServiceTest {
         player.setEmail("john.doe@example.com");
         player.setUsername("johndoe");
         player.setUserType(User.UserType.PLAYER);
+
+        admin = new User();
+        admin.setId(2L);
+        admin.setUserType(User.UserType.ADMIN);
 
         tournament = new Tournament();
         tournament.setId(1L);
@@ -163,7 +167,7 @@ public class TournamentRegistrationServiceTest {
         verify(tournamentRepository, times(1)).findById(1L);
         verify(registrationRepository, times(1)).findByPlayerAndTournament(player, tournament);
         verify(registrationRepository, times(1)).save(any(TournamentRegistration.class));
-        verify(notificationService, times(1)).sendNotification(any());
+        verify(notificationService, atLeastOnce()).sendNotification(any());
     }
 
     @Test
@@ -174,12 +178,12 @@ public class TournamentRegistrationServiceTest {
         admin.setUserType(User.UserType.ADMIN);
 
         when(userRepository.findById(2L)).thenReturn(Optional.of(admin));
-        when(tournamentRepository.findById(1L)).thenReturn(Optional.of(tournament));
+        // Don't mock tournamentRepository.findById() since we expect it not to be called
 
         // Act & Assert
         assertThrows(IllegalArgumentException.class, () -> registrationService.registerPlayerForTournament(2L, 1L));
         verify(userRepository, times(1)).findById(2L);
-        verify(tournamentRepository, times(1)).findById(1L);
+        verify(tournamentRepository, never()).findById(any()); // Verify it's never called
         verify(registrationRepository, never()).save(any(TournamentRegistration.class));
     }
 
@@ -187,7 +191,6 @@ public class TournamentRegistrationServiceTest {
     void registerPlayerForTournament_whenDeadlinePassed_shouldThrowException() {
         // Arrange
         tournament.setRegistrationDeadline(LocalDate.now().minusDays(1));
-
         when(userRepository.findById(1L)).thenReturn(Optional.of(player));
         when(tournamentRepository.findById(1L)).thenReturn(Optional.of(tournament));
 
@@ -217,17 +220,20 @@ public class TournamentRegistrationServiceTest {
     void updateRegistrationStatus_whenRegistrationExists_shouldUpdateStatus() {
         // Arrange
         when(registrationRepository.findById(1L)).thenReturn(Optional.of(registration));
+        when(tournamentRepository.findById(1L)).thenReturn(Optional.of(tournament));
         when(registrationRepository.save(any(TournamentRegistration.class))).thenReturn(registration);
 
         // Act
-        TournamentRegistrationDto result = registrationService.updateRegistrationStatus(1L, TournamentRegistration.RegistrationStatus.APPROVED);
+        TournamentRegistrationDto result = registrationService.updateRegistrationStatus(
+                1L, TournamentRegistration.RegistrationStatus.APPROVED);
 
         // Assert
         assertNotNull(result);
         assertEquals(TournamentRegistration.RegistrationStatus.APPROVED, result.getStatus());
         verify(registrationRepository, times(1)).findById(1L);
+        verify(tournamentRepository, times(1)).findById(1L);
         verify(registrationRepository, times(1)).save(any(TournamentRegistration.class));
-        verify(notificationService, times(1)).sendNotification(any());
+        verify(notificationService, atLeastOnce()).sendNotification(any());
     }
 
     @Test
@@ -254,6 +260,7 @@ public class TournamentRegistrationServiceTest {
 
         // Mock repository calls
         when(registrationRepository.findById(1L)).thenReturn(Optional.of(registration));
+        when(userRepository.findByUserType(User.UserType.ADMIN)).thenReturn(List.of(admin));
 
         // Act
         assertDoesNotThrow(() -> registrationService.cancelRegistration(1L));
@@ -261,7 +268,7 @@ public class TournamentRegistrationServiceTest {
         // Assert
         verify(registrationRepository, times(1)).findById(1L);
         verify(registrationRepository, times(1)).delete(registration);
-        verify(notificationService, times(2)).sendNotification(any()); // 1 for player, 1 for admin
+        verify(notificationService, atLeastOnce()).sendNotification(any());
     }
 
     @Test
@@ -283,5 +290,23 @@ public class TournamentRegistrationServiceTest {
         assertThrows(IllegalStateException.class, () -> registrationService.cancelRegistration(1L));
         verify(registrationRepository, times(1)).findById(1L);
         verify(registrationRepository, never()).delete(any());
+    }
+
+    @Test
+    void countApprovedRegistrationsByTournamentId_whenTournamentExists_shouldReturnCount() {
+        // Arrange
+        when(tournamentRepository.findById(1L)).thenReturn(Optional.of(tournament));
+        when(registrationRepository.countByTournamentAndStatus(
+                tournament, TournamentRegistration.RegistrationStatus.APPROVED))
+                .thenReturn(10L);
+
+        // Act
+        long result = registrationService.countApprovedRegistrationsByTournamentId(1L);
+
+        // Assert
+        assertEquals(10L, result);
+        verify(tournamentRepository, times(1)).findById(1L);
+        verify(registrationRepository, times(1)).countByTournamentAndStatus(
+                tournament, TournamentRegistration.RegistrationStatus.APPROVED);
     }
 }

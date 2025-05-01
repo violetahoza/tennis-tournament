@@ -76,7 +76,6 @@ export const API_ENDPOINTS = {
   },
 
   // Player filtering endpoints
-  // Player filtering endpoints
   PLAYERS: {
     GET_ALL: `${API_BASE_URL}/api/players`,
     FILTER: `${API_BASE_URL}/api/players/filter`,

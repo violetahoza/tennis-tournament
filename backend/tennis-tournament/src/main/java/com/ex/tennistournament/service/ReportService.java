@@ -44,7 +44,7 @@ public class ReportService {
             sb.append("Round: ").append(match.getRound()).append("\n");
             sb.append("Players: ").append(match.getPlayer1Name()).append(" vs ").append(match.getPlayer2Name()).append("\n");
             sb.append("Referee: ").append(match.getRefereeName()).append("\n");
-            sb.append("Scheduled: ").append(match.getScheduledTime().format(DATE_TIME_FORMATTER)).append("\n");
+            sb.append("Scheduled: ").append(match.getScheduledTime() != null ? match.getScheduledTime().format(DATE_TIME_FORMATTER) : "Not scheduled").append("\n");
             sb.append("Status: ").append(match.getStatus()).append("\n");
             sb.append("\n");
         }
@@ -66,15 +66,15 @@ public class ReportService {
         // Write data
         for (MatchDto match : matches) {
             String[] data = {
-                    match.getId().toString(),
-                    match.getTournamentName(),
+                    match.getId() != null ? match.getId().toString() : "",
+                    match.getTournamentName() != null ? match.getTournamentName() : "",
                     match.getRound() != null ? match.getRound().toString() : "",
-                    match.getPlayer1Name(),
-                    match.getPlayer2Name(),
-                    match.getRefereeName(),
+                    match.getPlayer1Name() != null ? match.getPlayer1Name() : "",
+                    match.getPlayer2Name() != null ? match.getPlayer2Name() : "",
+                    match.getRefereeName() != null ? match.getRefereeName() : "",
                     match.getCourtNumber() != null ? match.getCourtNumber().toString() : "",
-                    match.getScheduledTime().format(DATE_TIME_FORMATTER),
-                    match.getStatus().toString()
+                    match.getScheduledTime() != null ? match.getScheduledTime().format(DATE_TIME_FORMATTER) : "",
+                    match.getStatus() != null ? match.getStatus().toString() : ""
             };
             csvWriter.writeNext(data);
         }

@@ -35,7 +35,7 @@ public class EmailConfig {
     @Value("${spring.mail.properties.mail.smtp.starttls.enable:true}")
     private String starttls;
 
-    @Value("${tennis.app.email.enabled:false}")
+    @Value("${tennis.app.email.enabled:true}")
     private boolean emailEnabled;
 
     /**

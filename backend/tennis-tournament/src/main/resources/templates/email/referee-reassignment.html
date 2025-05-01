@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Referee Reassignment</title>
+</head>
+<body>
+<h2>Referee Reassignment</h2>
+<p>Dear <span th:text="${refereeName}">Referee</span>,</p>
+
+<p>You have been removed as the referee for the match between <span th:text="${player1Name}">Player 1</span> and <span th:text="${player2Name}">Player 2</span>.</p>
+
+<p>Match Details:</p>
+<ul>
+    <li>Tournament: <span th:text="${tournamentName}">Tournament</span></li>
+    <li>Date: <span th:text="${matchDate}">Match Date</span></li>
+    <li>Time: <span th:text="${matchTime}">Match Time</span></li>
+</ul>
+
+<p>We appreciate your contributions and look forward to your continued support.</p>
+<p>Best regards,<br>Tennis Tournament Team</p>
+</body>
+</html>

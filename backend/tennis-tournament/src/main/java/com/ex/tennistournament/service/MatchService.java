@@ -18,12 +18,15 @@ import com.ex.tennistournament.repository.TournamentRepository;
 import com.ex.tennistournament.repository.UserRepository;
 import com.ex.tennistournament.websocket.NotificationService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -33,6 +36,7 @@ import java.util.stream.Collectors;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class MatchService {
 
     private final MatchRepository matchRepository;
@@ -41,7 +45,12 @@ public class MatchService {
     private final UserRepository userRepository;
     private final TournamentRegistrationRepository registrationRepository;
     private final NotificationService notificationService;
-    private final RefereeNotificationService refereeNotificationService;
+    private final EmailService emailService;
+
+    // Date formatters for consistent formatting
+    private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm");
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("EEEE, MMMM d, yyyy");
+    private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
 
     public List<MatchDto> getAllMatches() {
         return matchRepository.findAll().stream()
@@ -141,11 +150,7 @@ public class MatchService {
             Match savedMatch = matchRepository.save(match);
 
             // Send notifications to all parties
-            sendMatchCreatedNotifications(savedMatch);
-
-            // Send notification to referee about assignment
-            sendRefereeAssignmentNotification(savedMatch);
-            refereeNotificationService.notifyRefereeOfAssignment(savedMatch, true);
+            sendMatchScheduledNotifications(savedMatch);
 
             return mapToDto(savedMatch);
         } catch (IllegalStateException e) {
@@ -188,6 +193,9 @@ public class MatchService {
         // Validate match timing
         validateMatchTiming(matchDto.getScheduledTime(), tournament);
 
+        // Save the current status for comparison after update
+        Match.MatchStatus previousStatus = existingMatch.getStatus();
+
         // Use the Builder pattern to update the Match
         try {
             // Start with default values from existing match
@@ -209,16 +217,25 @@ public class MatchService {
             Match savedMatch = matchRepository.save(updatedMatch);
 
             // Send notifications if status changed
-            if (existingMatch.getStatus() != savedMatch.getStatus()) {
-                sendStatusChangeNotification(savedMatch, existingMatch.getStatus());
+            if (previousStatus != savedMatch.getStatus()) {
+                sendStatusChangeNotifications(savedMatch, previousStatus);
             }
 
-            // Send notification to referee if they've been newly assigned
+            // Send notification if referee changed
             if (refereeChanged) {
-                sendRefereeAssignmentNotification(savedMatch);
-                refereeNotificationService.notifyRefereeOfAssignment(savedMatch, true);
-            } else {
-                refereeNotificationService.notifyRefereeOfAssignment(savedMatch, false);
+                // Notify new referee of assignment
+                sendRefereeAssignmentNotifications(savedMatch);
+
+                // Notify old referee of removal
+                sendRefereeReassignmentNotification(existingMatch.getReferee(), savedMatch);
+            }
+
+            // Send notification for schedule changes if time changed but status remained SCHEDULED
+            if (previousStatus == Match.MatchStatus.SCHEDULED &&
+                    savedMatch.getStatus() == Match.MatchStatus.SCHEDULED &&
+                    !existingMatch.getScheduledTime().equals(savedMatch.getScheduledTime())) {
+
+                sendScheduleChangeNotifications(savedMatch, existingMatch.getScheduledTime());
             }
 
             return mapToDto(savedMatch);
@@ -235,6 +252,10 @@ public class MatchService {
      * @return The updated match DTO
      */
     private MatchDto updateLimitedMatchFields(Match existingMatch, MatchDto matchDto) {
+        // Save current status for comparison
+        Match.MatchStatus previousStatus = existingMatch.getStatus();
+        User previousReferee = existingMatch.getReferee();
+
         // For in-progress matches, only allow updating the status, court number, and referee
         if (existingMatch.getStatus() == Match.MatchStatus.IN_PROGRESS) {
             // Can only update to COMPLETED or CANCELLED
@@ -256,9 +277,6 @@ public class MatchService {
 
                 existingMatch.setReferee(newReferee);
                 refereeChanged = true;
-
-                // Send notification to the new referee
-                sendRefereeAssignmentNotification(existingMatch);
             }
 
             // Allow changing court number
@@ -270,22 +288,35 @@ public class MatchService {
 
             Match savedMatch = matchRepository.save(existingMatch);
 
-            // If referee was changed, notify the new referee
+            // If status changed, send notifications to all parties
+            if (previousStatus != savedMatch.getStatus()) {
+                sendStatusChangeNotifications(savedMatch, previousStatus);
+            }
+
+            // If referee was changed, notify both the old and new referee
             if (refereeChanged) {
-                refereeNotificationService.notifyRefereeOfAssignment(savedMatch, true);
+                sendRefereeAssignmentNotifications(savedMatch);
+                sendRefereeReassignmentNotification(previousReferee, savedMatch);
             }
 
             return mapToDto(savedMatch);
+
         } else if (existingMatch.getStatus() == Match.MatchStatus.COMPLETED) {
             // For completed matches, only allow changing to CANCELLED
             if (matchDto.getStatus() == Match.MatchStatus.CANCELLED) {
                 existingMatch.setStatus(Match.MatchStatus.CANCELLED);
-                refereeNotificationService.notifyRefereeOfCancellation(existingMatch);
+                Match savedMatch = matchRepository.save(existingMatch);
+
+                // Send cancellation notifications
+                sendMatchCancelledNotifications(savedMatch);
+
+                return mapToDto(savedMatch);
             } else if (matchDto.getStatus() != Match.MatchStatus.COMPLETED) {
                 throw new IllegalArgumentException("Completed match can only be updated to CANCELLED");
             }
         }
 
+        // If we reach here, nothing changed that requires notifications
         Match savedMatch = matchRepository.save(existingMatch);
         return mapToDto(savedMatch);
     }
@@ -308,43 +339,56 @@ public class MatchService {
 
         // Send cancellation notification if not already cancelled
         if (match.getStatus() != Match.MatchStatus.CANCELLED) {
-            sendMatchCancelledNotification(match);
-            refereeNotificationService.notifyRefereeOfCancellation(match);
+            sendMatchCancelledNotifications(match);
         }
 
         matchRepository.deleteById(id);
     }
 
-    private void sendMatchCreatedNotifications(Match match) {
-        String message = "New match scheduled against " +
-                match.getPlayer2().getFirstName() + " " + match.getPlayer2().getLastName() +
-                " at " + match.getScheduledTime().format(DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm"));
+    /**
+     * Sends notifications to players about a newly scheduled match
+     */
+    private void sendMatchScheduledNotifications(Match match) {
+        log.info("Sending match scheduled notifications for match ID: {}", match.getId());
+
+        String formattedTime = match.getScheduledTime().format(DATE_TIME_FORMATTER);
 
         // Player 1 notification
-        NotificationDto notification1 = new NotificationDto();
-        notification1.setUserId(match.getPlayer1().getId());
-        notification1.setType("MATCH_SCHEDULED");
-        notification1.setMessage(message);
-        notification1.setTimestamp(LocalDateTime.now());
-        notificationService.sendNotification(notification1);
+        String message1 = String.format("New match scheduled against %s at %s on court %d",
+                match.getPlayer2().getFirstName() + " " + match.getPlayer2().getLastName(),
+                formattedTime,
+                match.getCourtNumber());
+
+        sendPlayerNotification(match.getPlayer1(), "MATCH_SCHEDULED", message1);
+        sendMatchScheduledEmail(match, match.getPlayer1(), match.getPlayer2());
 
         // Player 2 notification
-        NotificationDto notification2 = new NotificationDto();
-        notification2.setUserId(match.getPlayer2().getId());
-        notification2.setType("MATCH_SCHEDULED");
-        notification2.setMessage("New match scheduled against " +
-                match.getPlayer1().getFirstName() + " " + match.getPlayer1().getLastName() +
-                " at " + match.getScheduledTime().format(DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm")));
-        notification2.setTimestamp(LocalDateTime.now());
-        notificationService.sendNotification(notification2);
+        String message2 = String.format("New match scheduled against %s at %s on court %d",
+                match.getPlayer1().getFirstName() + " " + match.getPlayer1().getLastName(),
+                formattedTime,
+                match.getCourtNumber());
+
+        sendPlayerNotification(match.getPlayer2(), "MATCH_SCHEDULED", message2);
+        sendMatchScheduledEmail(match, match.getPlayer2(), match.getPlayer1());
+
+        // Also notify the referee about this assignment
+        sendRefereeAssignmentNotifications(match);
     }
 
     /**
      * Sends notification to a referee when they are assigned to a match
      */
-    private void sendRefereeAssignmentNotification(Match match) {
-        String formattedDateTime = match.getScheduledTime()
-                .format(DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm"));
+    private void sendRefereeAssignmentNotifications(Match match) {
+        log.info("Sending referee assignment notification for match ID: {}", match.getId());
+
+        User referee = match.getReferee();
+
+        if (referee == null) {
+            log.warn("Cannot send referee assignment notification - referee is null for match ID: {}", match.getId());
+            return;
+        }
+
+        String formattedDateTime = match.getScheduledTime().format(DATE_TIME_FORMATTER);
 
         String message = String.format(
                 "You have been assigned as referee for the match: %s vs %s at %s on court %d",
@@ -354,75 +398,377 @@ public class MatchService {
                 match.getCourtNumber()
         );
 
-        NotificationDto notification = NotificationDto.builder()
-                .userId(match.getReferee().getId())
-                .type("MATCH_ASSIGNMENT")
-                .message(message)
-                .timestamp(LocalDateTime.now())
-                .read(false)
-                .build();
+        // Send in-app notification
+        sendRefereeNotification(referee, "MATCH_ASSIGNMENT", message);
 
-        notificationService.sendNotification(notification);
+        // Send email notification
+        sendRefereeAssignmentEmail(match, referee, true);
     }
 
-    private void sendStatusChangeNotification(Match match, Match.MatchStatus previousStatus) {
-        String message = "Match status changed from " + previousStatus + " to " + match.getStatus();
+    /**
+     * Sends notification to a referee when they are removed from a match
+     */
+    private void sendRefereeReassignmentNotification(User previousReferee, Match match) {
+        log.info("Sending referee reassignment notification to previous referee for match ID: {}", match.getId());
 
-        // Player 1 notification
-        NotificationDto notification1 = new NotificationDto();
-        notification1.setUserId(match.getPlayer1().getId());
-        notification1.setType("MATCH_STATUS_CHANGE");
-        notification1.setMessage(message);
-        notification1.setTimestamp(LocalDateTime.now());
-        notificationService.sendNotification(notification1);
+        if (previousReferee == null) {
+            log.warn("Cannot send referee reassignment notification - previous referee is null for match ID: {}", match.getId());
+            return;
+        }
 
-        // Player 2 notification
-        NotificationDto notification2 = new NotificationDto();
-        notification2.setUserId(match.getPlayer2().getId());
-        notification2.setType("MATCH_STATUS_CHANGE");
-        notification2.setMessage(message);
-        notification2.setTimestamp(LocalDateTime.now());
-        notificationService.sendNotification(notification2);
+        String message = String.format(
+                "You have been removed as referee from the match: %s vs %s",
+                match.getPlayer1().getFirstName() + " " + match.getPlayer1().getLastName(),
+                match.getPlayer2().getFirstName() + " " + match.getPlayer2().getLastName()
+        );
 
-        // Referee notification
-        NotificationDto notificationRef = new NotificationDto();
-        notificationRef.setUserId(match.getReferee().getId());
-        notificationRef.setType("MATCH_STATUS_CHANGE");
-        notificationRef.setMessage(message);
-        notificationRef.setTimestamp(LocalDateTime.now());
-        notificationService.sendNotification(notificationRef);
+        // Send in-app notification
+        sendRefereeNotification(previousReferee, "MATCH_ASSIGNMENT_REMOVED", message);
+
+        // Send email notification
+        try {
+            String subject = "Referee Assignment Removed - Tennis Tournament";
+
+            Map<String, Object> emailVars = new HashMap<>();
+            emailVars.put("refereeName", previousReferee.getFirstName() + " " + previousReferee.getLastName());
+            emailVars.put("tournamentName", match.getTournament().getName());
+            emailVars.put("player1Name", match.getPlayer1().getFirstName() + " " + match.getPlayer1().getLastName());
+            emailVars.put("player2Name", match.getPlayer2().getFirstName() + " " + match.getPlayer2().getLastName());
+            emailVars.put("matchDate", match.getScheduledTime().format(DATE_FORMATTER));
+            emailVars.put("matchTime", match.getScheduledTime().format(TIME_FORMATTER));
+
+            emailService.sendTemplateEmail(
+                    previousReferee.getEmail(),
+                    subject,
+                    "referee-reassignment",
+                    emailVars
+            );
+
+            log.info("Sent referee reassignment email to: {}", previousReferee.getEmail());
+        } catch (Exception e) {
+            log.error("Failed to send referee reassignment email: {}", e.getMessage());
+        }
     }
 
-    private void sendMatchCancelledNotification(Match match) {
-        String message = "Your match scheduled for " +
-                match.getScheduledTime().format(DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm")) +
-                " has been cancelled";
+    /**
+     * Send notifications to all relevant parties when a match status changes
+     */
+    private void sendStatusChangeNotifications(Match match, Match.MatchStatus previousStatus) {
+        log.info("Sending status change notifications for match ID: {}, status change from {} to {}",
+                match.getId(), previousStatus, match.getStatus());
 
-        // Player 1 notification
-        NotificationDto notification1 = new NotificationDto();
-        notification1.setUserId(match.getPlayer1().getId());
-        notification1.setType("MATCH_CANCELLED");
-        notification1.setMessage(message);
-        notification1.setTimestamp(LocalDateTime.now());
-        notificationService.sendNotification(notification1);
+        String statusChangeMsg = String.format(
+                "Match status changed from %s to %s for match: %s vs %s",
+                previousStatus,
+                match.getStatus(),
+                match.getPlayer1().getFirstName() + " " + match.getPlayer1().getLastName(),
+                match.getPlayer2().getFirstName() + " " + match.getPlayer2().getLastName()
+        );
 
-        // Player 2 notification
-        NotificationDto notification2 = new NotificationDto();
-        notification2.setUserId(match.getPlayer2().getId());
-        notification2.setType("MATCH_CANCELLED");
-        notification2.setMessage(message);
-        notification2.setTimestamp(LocalDateTime.now());
-        notificationService.sendNotification(notification2);
+        // If match was cancelled, use specific cancellation notifications
+        if (match.getStatus() == Match.MatchStatus.CANCELLED) {
+            sendMatchCancelledNotifications(match);
+            return;
+        }
+
+        // Send to player 1
+        sendPlayerNotification(match.getPlayer1(), "MATCH_STATUS_CHANGE", statusChangeMsg);
+        sendStatusChangeEmail(match, match.getPlayer1(), previousStatus);
+
+        // Send to player 2
+        sendPlayerNotification(match.getPlayer2(), "MATCH_STATUS_CHANGE", statusChangeMsg);
+        sendStatusChangeEmail(match, match.getPlayer2(), previousStatus);
+
+        // Send to referee
+        sendRefereeNotification(match.getReferee(), "MATCH_STATUS_CHANGE", statusChangeMsg);
+        sendStatusChangeEmail(match, match.getReferee(), previousStatus);
+    }
+
+    /**
+     * Send notifications when a match's schedule changes
+     */
+    private void sendScheduleChangeNotifications(Match match, LocalDateTime previousTime) {
+        log.info("Sending schedule change notifications for match ID: {}", match.getId());
+
+        String previousTimeStr = previousTime.format(DATE_TIME_FORMATTER);
+        String newTimeStr = match.getScheduledTime().format(DATE_TIME_FORMATTER);
+
+        String message = String.format(
+                "Match schedule has changed from %s to %s for match: %s vs %s on court %d",
+                previousTimeStr,
+                newTimeStr,
+                match.getPlayer1().getFirstName() + " " + match.getPlayer1().getLastName(),
+                match.getPlayer2().getFirstName() + " " + match.getPlayer2().getLastName(),
+                match.getCourtNumber()
+        );
+
+        // Notify player 1
+        sendPlayerNotification(match.getPlayer1(), "MATCH_RESCHEDULED", message);
+        sendScheduleChangeEmail(match, match.getPlayer1(), previousTime);
+
+        // Notify player 2
+        sendPlayerNotification(match.getPlayer2(), "MATCH_RESCHEDULED", message);
+        sendScheduleChangeEmail(match, match.getPlayer2(), previousTime);
+
+        // Notify referee
+        sendRefereeNotification(match.getReferee(), "MATCH_RESCHEDULED", message);
+        sendScheduleChangeEmail(match, match.getReferee(), previousTime);
+    }
+
+    /**
+     * Send notifications to all relevant parties when a match is cancelled
+     */
+    private void sendMatchCancelledNotifications(Match match) {
+        log.info("Sending match cancellation notifications for match ID: {}", match.getId());
+
+        String formattedTime = match.getScheduledTime().format(DATE_TIME_FORMATTER);
+
+        // Player notifications
+        String playerMessage = String.format(
+                "Your match scheduled for %s has been cancelled: %s vs %s",
+                formattedTime,
+                match.getPlayer1().getFirstName() + " " + match.getPlayer1().getLastName(),
+                match.getPlayer2().getFirstName() + " " + match.getPlayer2().getLastName()
+        );
+
+        // Notify player 1
+        sendPlayerNotification(match.getPlayer1(), "MATCH_CANCELLED", playerMessage);
+        sendMatchCancellationEmail(match, match.getPlayer1(), true);
+
+        // Notify player 2
+        sendPlayerNotification(match.getPlayer2(), "MATCH_CANCELLED", playerMessage);
+        sendMatchCancellationEmail(match, match.getPlayer2(), true);
 
         // Referee notification
-        NotificationDto notificationRef = new NotificationDto();
-        notificationRef.setUserId(match.getReferee().getId());
-        notificationRef.setType("MATCH_CANCELLED");
-        notificationRef.setMessage("Match you were assigned to referee has been cancelled: " +
-                match.getPlayer1().getFirstName() + " " + match.getPlayer1().getLastName() + " vs " +
-                match.getPlayer2().getFirstName() + " " + match.getPlayer2().getLastName());
-        notificationRef.setTimestamp(LocalDateTime.now());
-        notificationService.sendNotification(notificationRef);
+        String refereeMessage = String.format(
+                "Match you were assigned to referee has been cancelled: %s vs %s (scheduled for %s)",
+                match.getPlayer1().getFirstName() + " " + match.getPlayer1().getLastName(),
+                match.getPlayer2().getFirstName() + " " + match.getPlayer2().getLastName(),
+                formattedTime
+        );
+
+        sendRefereeNotification(match.getReferee(), "MATCH_CANCELLED", refereeMessage);
+        sendMatchCancellationEmail(match, match.getReferee(), false);
+    }
+
+    /**
+     * Helper method to send a notification to a player
+     */
+    private void sendPlayerNotification(User player, String type, String message) {
+        if (player == null) {
+            log.warn("Cannot send player notification - player is null");
+            return;
+        }
+
+        try {
+            NotificationDto notification = NotificationDto.builder()
+                    .userId(player.getId())
+                    .type(type)
+                    .message(message)
+                    .timestamp(LocalDateTime.now())
+                    .read(false)
+                    .build();
+
+            notificationService.sendNotification(notification);
+            log.debug("Sent {} notification to player {}", type, player.getUsername());
+        } catch (Exception e) {
+            log.error("Failed to send notification to player {}: {}", player.getUsername(), e.getMessage());
+        }
+    }
+
+    /**
+     * Helper method to send a notification to a referee
+     */
+    private void sendRefereeNotification(User referee, String type, String message) {
+        if (referee == null) {
+            log.warn("Cannot send referee notification - referee is null");
+            return;
+        }
+
+        try {
+            NotificationDto notification = NotificationDto.builder()
+                    .userId(referee.getId())
+                    .type(type)
+                    .message(message)
+                    .timestamp(LocalDateTime.now())
+                    .read(false)
+                    .build();
+
+            notificationService.sendNotification(notification);
+            log.debug("Sent {} notification to referee {}", type, referee.getUsername());
+        } catch (Exception e) {
+            log.error("Failed to send notification to referee {}: {}", referee.getUsername(), e.getMessage());
+        }
+    }
+
+    /**
+     * Sends an email notification to a player about a scheduled match
+     */
+    private void sendMatchScheduledEmail(Match match, User recipient, User opponent) {
+        try {
+            String subject = "New Match Scheduled - Tennis Tournament";
+
+            Map<String, Object> emailVars = new HashMap<>();
+            emailVars.put("recipientName", recipient.getFirstName() + " " + recipient.getLastName());
+            emailVars.put("opponentName", opponent.getFirstName() + " " + opponent.getLastName());
+            emailVars.put("tournamentName", match.getTournament().getName());
+            emailVars.put("player1Name", match.getPlayer1().getFirstName() + " " + match.getPlayer1().getLastName());
+            emailVars.put("player2Name", match.getPlayer2().getFirstName() + " " + match.getPlayer2().getLastName());
+            emailVars.put("matchDate", match.getScheduledTime().format(DATE_FORMATTER));
+            emailVars.put("matchTime", match.getScheduledTime().format(TIME_FORMATTER));
+            emailVars.put("courtNumber", "Court " + match.getCourtNumber());
+            emailVars.put("matchRound", match.getRound().toString().replace("_", " "));
+
+            emailService.sendTemplateEmail(
+                    recipient.getEmail(),
+                    subject,
+                    "match-scheduled",
+                    emailVars
+            );
+
+            log.info("Sent match scheduled email to: {}", recipient.getEmail());
+        } catch (Exception e) {
+            log.error("Failed to send match scheduled email: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Sends an email notification to a referee about a match assignment
+     */
+    private void sendRefereeAssignmentEmail(Match match, User referee, boolean isNewAssignment) {
+        try {
+            String subject = isNewAssignment ?
+                    "New Match Assignment - Tennis Tournament" :
+                    "Updated Match Assignment - Tennis Tournament";
+
+            Map<String, Object> emailVars = new HashMap<>();
+            emailVars.put("refereeName", referee.getFirstName() + " " + referee.getLastName());
+            emailVars.put("tournamentName", match.getTournament().getName());
+            emailVars.put("player1Name", match.getPlayer1().getFirstName() + " " + match.getPlayer1().getLastName());
+            emailVars.put("player2Name", match.getPlayer2().getFirstName() + " " + match.getPlayer2().getLastName());
+            emailVars.put("matchDate", match.getScheduledTime().format(DATE_FORMATTER));
+            emailVars.put("matchTime", match.getScheduledTime().format(TIME_FORMATTER));
+            emailVars.put("courtNumber", "Court " + match.getCourtNumber());
+            emailVars.put("matchRound", match.getRound().toString().replace("_", " "));
+
+            emailService.sendTemplateEmail(
+                    referee.getEmail(),
+                    subject,
+                    "referee-assignment",
+                    emailVars
+            );
+
+            log.info("Sent referee assignment email to: {}", referee.getEmail());
+        } catch (Exception e) {
+            log.error("Failed to send referee assignment email: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Sends an email about a match status change
+     */
+    private void sendStatusChangeEmail(Match match, User recipient, Match.MatchStatus previousStatus) {
+        try {
+            String subject = "Match Status Update - Tennis Tournament";
+
+            Map<String, Object> emailVars = new HashMap<>();
+            emailVars.put("recipientName", recipient.getFirstName() + " " + recipient.getLastName());
+            emailVars.put("tournamentName", match.getTournament().getName());
+            emailVars.put("player1Name", match.getPlayer1().getFirstName() + " " + match.getPlayer1().getLastName());
+            emailVars.put("player2Name", match.getPlayer2().getFirstName() + " " + match.getPlayer2().getLastName());
+            emailVars.put("matchDate", match.getScheduledTime().format(DATE_FORMATTER));
+            emailVars.put("matchTime", match.getScheduledTime().format(TIME_FORMATTER));
+            emailVars.put("previousStatus", previousStatus.toString());
+            emailVars.put("newStatus", match.getStatus().toString());
+
+            emailService.sendTemplateEmail(
+                    recipient.getEmail(),
+                    subject,
+                    "match-status-change",
+                    emailVars
+            );
+
+            log.info("Sent match status change email to: {}", recipient.getEmail());
+        } catch (Exception e) {
+            log.error("Failed to send match status change email: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Sends an email about a match schedule change
+     */
+    private void sendScheduleChangeEmail(Match match, User recipient, LocalDateTime previousTime) {
+        try {
+            String subject = "Match Schedule Update - Tennis Tournament";
+
+            Map<String, Object> emailVars = new HashMap<>();
+            emailVars.put("recipientName", recipient.getFirstName() + " " + recipient.getLastName());
+            emailVars.put("tournamentName", match.getTournament().getName());
+            emailVars.put("player1Name", match.getPlayer1().getFirstName() + " " + match.getPlayer1().getLastName());
+            emailVars.put("player2Name", match.getPlayer2().getFirstName() + " " + match.getPlayer2().getLastName());
+            emailVars.put("oldMatchDate", previousTime.format(DATE_FORMATTER));
+            emailVars.put("oldMatchTime", previousTime.format(TIME_FORMATTER));
+            emailVars.put("newMatchDate", match.getScheduledTime().format(DATE_FORMATTER));
+            emailVars.put("newMatchTime", match.getScheduledTime().format(TIME_FORMATTER));
+            emailVars.put("courtNumber", "Court " + match.getCourtNumber());
+
+            // Use match-rescheduled template or fall back to a generic one
+            emailService.sendTemplateEmail(
+                    recipient.getEmail(),
+                    subject,
+                    "match-rescheduled",
+                    emailVars
+            );
+
+            log.info("Sent match reschedule email to: {}", recipient.getEmail());
+        } catch (Exception e) {
+            log.error("Failed to send match reschedule email: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Sends an email notification about a match cancellation
+     */
+    private void sendMatchCancellationEmail(Match match, User recipient, boolean isPlayer) {
+        try {
+            String subject = "Match Cancellation - Tennis Tournament";
+
+            Map<String, Object> emailVars = new HashMap<>();
+
+            // Common variables for both player and referee templates
+            emailVars.put("tournamentName", match.getTournament().getName());
+            emailVars.put("player1Name", match.getPlayer1().getFirstName() + " " + match.getPlayer1().getLastName());
+            emailVars.put("player2Name", match.getPlayer2().getFirstName() + " " + match.getPlayer2().getLastName());
+            emailVars.put("matchDate", match.getScheduledTime().format(DATE_FORMATTER));
+            emailVars.put("matchTime", match.getScheduledTime().format(TIME_FORMATTER));
+            emailVars.put("cancellationDate", LocalDateTime.now().format(DATE_FORMATTER));
+
+            if (isPlayer) {
+                // For players
+                emailVars.put("playerName", recipient.getFirstName() + " " + recipient.getLastName());
+
+                emailService.sendTemplateEmail(
+                        recipient.getEmail(),
+                        subject,
+                        "match-cancellation-player",
+                        emailVars
+                );
+            } else {
+                // For referees
+                emailVars.put("refereeName", recipient.getFirstName() + " " + recipient.getLastName());
+
+                emailService.sendTemplateEmail(
+                        recipient.getEmail(),
+                        subject,
+                        "match-cancellation",
+                        emailVars
+                );
+            }
+
+            log.info("Sent match cancellation email to: {}", recipient.getEmail());
+        } catch (Exception e) {
+            log.error("Failed to send match cancellation email: {}", e.getMessage());
+        }
     }
 
     private MatchDto mapToDto(Match match) {
@@ -441,6 +787,41 @@ public class MatchService {
                 .status(match.getStatus())
                 .round(match.getRound())
                 .build();
+    }
+
+    private MatchScoreDto mapScoreToDto(MatchScore score) {
+        return MatchScoreDto.builder()
+                .id(score.getId())
+                .matchId(score.getMatch().getId())
+                .setNumber(score.getSetNumber())
+                .player1Score(score.getPlayer1Score())
+                .player2Score(score.getPlayer2Score())
+                .build();
+    }
+
+    private String determineWinner(List<MatchScore> scores, Match match) {
+        if (match.getStatus() != Match.MatchStatus.COMPLETED || scores.isEmpty()) {
+            return "Match not completed";
+        }
+
+        int player1Sets = 0;
+        int player2Sets = 0;
+
+        for (MatchScore score : scores) {
+            if (score.getPlayer1Score() > score.getPlayer2Score()) {
+                player1Sets++;
+            } else if (score.getPlayer2Score() > score.getPlayer1Score()) {
+                player2Sets++;
+            }
+        }
+
+        if (player1Sets > player2Sets) {
+            return match.getPlayer1().getFirstName() + " " + match.getPlayer1().getLastName();
+        } else if (player2Sets > player1Sets) {
+            return match.getPlayer2().getFirstName() + " " + match.getPlayer2().getLastName();
+        } else {
+            return "Tie";
+        }
     }
 
     /**
@@ -494,41 +875,6 @@ public class MatchService {
 
         if (scheduledTime.isAfter(tournamentEnd)) {
             throw new IllegalArgumentException("Match cannot be scheduled after tournament ends");
-        }
-    }
-
-    private MatchScoreDto mapScoreToDto(MatchScore score) {
-        return MatchScoreDto.builder()
-                .id(score.getId())
-                .matchId(score.getMatch().getId())
-                .setNumber(score.getSetNumber())
-                .player1Score(score.getPlayer1Score())
-                .player2Score(score.getPlayer2Score())
-                .build();
-    }
-
-    private String determineWinner(List<MatchScore> scores, Match match) {
-        if (match.getStatus() != Match.MatchStatus.COMPLETED || scores.isEmpty()) {
-            return "Match not completed";
-        }
-
-        int player1Sets = 0;
-        int player2Sets = 0;
-
-        for (MatchScore score : scores) {
-            if (score.getPlayer1Score() > score.getPlayer2Score()) {
-                player1Sets++;
-            } else if (score.getPlayer2Score() > score.getPlayer1Score()) {
-                player2Sets++;
-            }
-        }
-
-        if (player1Sets > player2Sets) {
-            return match.getPlayer1().getFirstName() + " " + match.getPlayer1().getLastName();
-        } else if (player2Sets > player1Sets) {
-            return match.getPlayer2().getFirstName() + " " + match.getPlayer2().getLastName();
-        } else {
-            return "Tie";
         }
     }
 }

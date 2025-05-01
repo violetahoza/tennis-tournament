@@ -34,7 +34,7 @@ public class EmailService {
     @Value("${spring.mail.username:noreply@tennistournament.com}")
     private String fromEmail;
 
-    @Value("${tennis.app.email.enabled:false}")
+    @Value("${tennis.app.email.enabled:true}")
     private boolean emailEnabled;
 
     /**
