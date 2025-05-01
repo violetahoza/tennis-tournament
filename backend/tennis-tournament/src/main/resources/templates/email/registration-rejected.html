@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <title>Registration Not Approved</title>
+</head>
+<body>
+<div th:fragment="content">
+  <h2>Registration Not Approved</h2>
+
+  <p>Dear <span th:text="${playerName}">Player</span>,</p>
+
+  <p>We regret to inform you that your registration for <strong th:text="${tournamentName}">Tournament</strong> has been <span class="status-rejected">rejected</span>.</p>
+
+  <p>Your registration status has been changed from <span th:text="${oldStatus}">PENDING</span> to <span class="status-rejected">REJECTED</span>.</p>
+
+  <p>This could be due to several reasons including, but not limited to:</p>
+  <ul>
+    <li>Tournament capacity constraints</li>
+    <li>Eligibility requirements</li>
+    <li>Player ranking considerations</li>
+  </ul>
+
+  <p>If you believe there has been an error or would like more specific information about why your registration was not approved, please contact the tournament administrators.</p>
+
+  <p>We encourage you to check out other upcoming tournaments that might be more suitable for your participation.</p>
+
+  <p>Best regards,<br>
+    Tennis Tournament Team</p>
+</div>
+</body>
+</html>

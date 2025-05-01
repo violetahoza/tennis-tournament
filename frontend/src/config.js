@@ -74,6 +74,16 @@ export const API_ENDPOINTS = {
     MARK_AS_READ: (id) => `${API_BASE_URL}/api/notifications/${id}/read`,
     MARK_ALL_AS_READ: `${API_BASE_URL}/api/notifications/read-all`,
   },
+
+  // Player filtering endpoints
+  // Player filtering endpoints
+  PLAYERS: {
+    GET_ALL: `${API_BASE_URL}/api/players`,
+    FILTER: `${API_BASE_URL}/api/players/filter`,
+    GET_BY_TOURNAMENT: (tournamentId) => `${API_BASE_URL}/api/players/tournament/${tournamentId}`,
+    GET_BY_HAND_PREFERENCE: (handPreference) => `${API_BASE_URL}/api/players/hand-preference/${handPreference}`,
+    GET_STATISTICS: (playerId) => `${API_BASE_URL}/api/players/${playerId}/statistics`,
+  },
   
   WEBSOCKET: `${API_BASE_URL}/ws`
 

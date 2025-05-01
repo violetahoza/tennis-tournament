@@ -170,6 +170,14 @@ public class UserService {
                 updatedUser.setPassword(existingUser.getPassword());
             }
 
+            // Set role-specific fields
+            if (existingUser.getUserType() == User.UserType.PLAYER) {
+                updatedUser.setHandPreference(userDto.getHandPreference());
+            } else if (existingUser.getUserType() == User.UserType.REFEREE) {
+                updatedUser.setCertificationLevel(userDto.getCertificationLevel());
+                updatedUser.setYearsOfExperience(userDto.getYearsOfExperience());
+            }
+
             User savedUser = userRepository.save(updatedUser);
             return mapUserToDto(savedUser);
         } catch (IllegalStateException e) {
@@ -267,6 +275,9 @@ public class UserService {
                 .firstName(user.getFirstName())
                 .lastName(user.getLastName())
                 .userType(user.getUserType())
+                .handPreference(user.getHandPreference())
+                .certificationLevel(user.getCertificationLevel())
+                .yearsOfExperience(user.getYearsOfExperience())
                 // Do not include password in the response
                 .build();
     }

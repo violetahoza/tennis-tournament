@@ -67,6 +67,18 @@ public class User implements UserDetails {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    // Player-specific fields
+    @Enumerated(EnumType.STRING)
+    @Column(name = "hand_preference")
+    private HandPreference handPreference;
+
+    // Referee-specific fields
+    @Column(name = "certification_level")
+    private String certificationLevel;
+
+    @Column(name = "years_of_experience")
+    private Integer yearsOfExperience;
+
     /**
      * Enum defining available user roles.
      * Used for role-based access control.
@@ -76,6 +88,13 @@ public class User implements UserDetails {
      */
     public enum UserType {
         PLAYER, REFEREE, ADMIN
+    }
+
+    /**
+     * Enum defining player's dominant hand preference.
+     */
+    public enum HandPreference {
+        RIGHT, LEFT
     }
 
     /**

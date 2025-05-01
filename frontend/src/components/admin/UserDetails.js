@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
   Box, Button, TextField, Typography, Paper, Grid, FormControl,
-  InputLabel, Select, MenuItem, Alert, CircularProgress
+  InputLabel, Select, MenuItem, Alert, CircularProgress, Card, CardContent
 } from '@mui/material';
 import { ArrowBack as ArrowBackIcon, Save as SaveIcon } from '@mui/icons-material';
 import { API_ENDPOINTS } from '../../config';
@@ -20,7 +20,11 @@ const UserDetails = () => {
     lastName: '',
     userType: 'PLAYER',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    // Additional fields for different user types
+    handPreference: 'RIGHT', // For players
+    certificationLevel: '', // For referees
+    yearsOfExperience: 0 // For referees
   });
   
   const [loading, setLoading] = useState(!isNewUser);
@@ -43,7 +47,11 @@ const UserDetails = () => {
       setUser({
         ...res.data,
         password: '',
-        confirmPassword: ''
+        confirmPassword: '',
+        // Set default values if the fields don't exist
+        handPreference: res.data.handPreference || 'RIGHT',
+        certificationLevel: res.data.certificationLevel || '',
+        yearsOfExperience: res.data.yearsOfExperience || 0
       });
       setError(null);
     } catch (err) {
@@ -56,7 +64,10 @@ const UserDetails = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setUser({ ...user, [name]: value });
+    setUser({ 
+      ...user, 
+      [name]: name === 'yearsOfExperience' ? (parseInt(value, 10) || 0) : value 
+    });
     
     // Clear validation errors for this field
     if (validationErrors[name]) {
@@ -142,6 +153,14 @@ const UserDetails = () => {
           userType: user.userType
         };
         
+        // Add user type specific fields
+        if (user.userType === 'PLAYER') {
+          newUser.handPreference = user.handPreference;
+        } else if (user.userType === 'REFEREE') {
+          newUser.certificationLevel = user.certificationLevel;
+          newUser.yearsOfExperience = user.yearsOfExperience;
+        }
+        
         response = await axios.post(API_ENDPOINTS.AUTH.REGISTER, newUser);
         setSuccess('User created successfully!');
         
@@ -159,6 +178,14 @@ const UserDetails = () => {
           lastName: user.lastName,
           userType: user.userType
         };
+        
+        // Add user type specific fields
+        if (user.userType === 'PLAYER') {
+          userToUpdate.handPreference = user.handPreference;
+        } else if (user.userType === 'REFEREE') {
+          userToUpdate.certificationLevel = user.certificationLevel;
+          userToUpdate.yearsOfExperience = user.yearsOfExperience;
+        }
         
         // Only send password update if a new password is provided
         if (user.password) {
@@ -257,116 +284,180 @@ const UserDetails = () => {
       {success && <Alert severity="success" sx={{ mb: 3 }}>{success}</Alert>}
 
       <form onSubmit={handleSubmit}>
-        <Grid container spacing={3}>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              name="username"
-              label="Username"
-              fullWidth
-              value={user.username}
-              onChange={handleChange}
-              disabled={!isNewUser}
-              required
-              error={Boolean(validationErrors.username)}
-              helperText={validationErrors.username || ''}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              name="email"
-              label="Email"
-              type="email"
-              fullWidth
-              value={user.email}
-              onChange={handleChange}
-              required
-              error={Boolean(validationErrors.email)}
-              helperText={validationErrors.email || ''}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              name="firstName"
-              label="First Name"
-              fullWidth
-              value={user.firstName}
-              onChange={handleChange}
-              required
-              error={Boolean(validationErrors.firstName)}
-              helperText={validationErrors.firstName || ''}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              name="lastName"
-              label="Last Name"
-              fullWidth
-              value={user.lastName}
-              onChange={handleChange}
-              required
-              error={Boolean(validationErrors.lastName)}
-              helperText={validationErrors.lastName || ''}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <FormControl fullWidth>
-              <InputLabel id="userType-label">Role</InputLabel>
-              <Select
-                labelId="userType-label"
-                name="userType"
-                value={user.userType}
-                onChange={handleChange}
-                label="Role"
-                required
-              >
-                <MenuItem value="ADMIN">Admin</MenuItem>
-                <MenuItem value="PLAYER">Player</MenuItem>
-                <MenuItem value="REFEREE">Referee</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} sm={6}></Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              name="password"
-              label={isNewUser ? "Password" : "New Password (leave blank to keep current)"}
-              type="password"
-              fullWidth
-              value={user.password}
-              onChange={handleChange}
-              required={isNewUser}
-              error={Boolean(validationErrors.password)}
-              helperText={validationErrors.password || "Password must be at least 8 characters and include uppercase, lowercase and digits"}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              name="confirmPassword"
-              label="Confirm Password"
-              type="password"
-              fullWidth
-              value={user.confirmPassword}
-              onChange={handleChange}
-              required={isNewUser || user.password}
-              error={Boolean(validationErrors.confirmPassword)}
-              helperText={validationErrors.confirmPassword || ''}
-              disabled={isNewUser ? false : !user.password}
-            />
-          </Grid>
-          <Grid item xs={12}>
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <Button
-                variant="contained"
-                color="primary"
-                type="submit"
-                startIcon={<SaveIcon />}
-                disabled={saving}
-              >
-                {saving ? 'Saving...' : 'Save User'}
-              </Button>
-            </Box>
-          </Grid>
-        </Grid>
+        <Card sx={{ mb: 4 }}>
+          <CardContent>
+            <Typography variant="h6" gutterBottom>Basic Information</Typography>
+            <Grid container spacing={3}>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  name="username"
+                  label="Username"
+                  fullWidth
+                  value={user.username}
+                  onChange={handleChange}
+                  disabled={!isNewUser}
+                  required
+                  error={Boolean(validationErrors.username)}
+                  helperText={validationErrors.username || ''}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  name="email"
+                  label="Email"
+                  type="email"
+                  fullWidth
+                  value={user.email}
+                  onChange={handleChange}
+                  required
+                  error={Boolean(validationErrors.email)}
+                  helperText={validationErrors.email || ''}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  name="firstName"
+                  label="First Name"
+                  fullWidth
+                  value={user.firstName}
+                  onChange={handleChange}
+                  required
+                  error={Boolean(validationErrors.firstName)}
+                  helperText={validationErrors.firstName || ''}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  name="lastName"
+                  label="Last Name"
+                  fullWidth
+                  value={user.lastName}
+                  onChange={handleChange}
+                  required
+                  error={Boolean(validationErrors.lastName)}
+                  helperText={validationErrors.lastName || ''}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel id="userType-label">Role</InputLabel>
+                  <Select
+                    labelId="userType-label"
+                    name="userType"
+                    value={user.userType}
+                    onChange={handleChange}
+                    label="Role"
+                    required
+                  >
+                    <MenuItem value="ADMIN">Admin</MenuItem>
+                    <MenuItem value="PLAYER">Player</MenuItem>
+                    <MenuItem value="REFEREE">Referee</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={6}></Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  name="password"
+                  label={isNewUser ? "Password" : "New Password (leave blank to keep current)"}
+                  type="password"
+                  fullWidth
+                  value={user.password}
+                  onChange={handleChange}
+                  required={isNewUser}
+                  error={Boolean(validationErrors.password)}
+                  helperText={validationErrors.password || "Password must be at least 8 characters and include uppercase, lowercase and digits"}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  name="confirmPassword"
+                  label="Confirm Password"
+                  type="password"
+                  fullWidth
+                  value={user.confirmPassword}
+                  onChange={handleChange}
+                  required={isNewUser || user.password}
+                  error={Boolean(validationErrors.confirmPassword)}
+                  helperText={validationErrors.confirmPassword || ''}
+                  disabled={isNewUser ? false : !user.password}
+                />
+              </Grid>
+            </Grid>
+          </CardContent>
+        </Card>
+
+        {/* Player specific fields */}
+        {user.userType === 'PLAYER' && (
+          <Card sx={{ mb: 4 }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>Player Information</Typography>
+              <Typography variant="body2" color="textSecondary" paragraph>
+                This information is used for tournament rankings and statistics.
+              </Typography>
+              <Grid container spacing={3}>
+                <Grid item xs={12}>
+                  <FormControl fullWidth>
+                    <InputLabel id="handPreference-label">Hand Preference</InputLabel>
+                    <Select
+                      labelId="handPreference-label"
+                      name="handPreference"
+                      value={user.handPreference}
+                      label="Hand Preference"
+                      onChange={handleChange}
+                    >
+                      <MenuItem value="RIGHT">Right Hand</MenuItem>
+                      <MenuItem value="LEFT">Left Hand</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+              </Grid>
+            </CardContent>
+          </Card>
+        )}
+        
+        {/* Referee specific fields */}
+        {user.userType === 'REFEREE' && (
+          <Card sx={{ mb: 4 }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>Referee Information</Typography>
+              <Grid container spacing={3}>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    name="certificationLevel"
+                    label="Certification Level"
+                    fullWidth
+                    value={user.certificationLevel}
+                    onChange={handleChange}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    name="yearsOfExperience"
+                    label="Years of Experience"
+                    type="number"
+                    fullWidth
+                    value={user.yearsOfExperience}
+                    onChange={handleChange}
+                    inputProps={{ min: 0 }}
+                  />
+                </Grid>
+              </Grid>
+            </CardContent>
+          </Card>
+        )}
+
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <Button
+            variant="contained"
+            color="primary"
+            type="submit"
+            startIcon={<SaveIcon />}
+            disabled={saving}
+          >
+            {saving ? 'Saving...' : 'Save User'}
+          </Button>
+        </Box>
       </form>
     </Paper>
   );

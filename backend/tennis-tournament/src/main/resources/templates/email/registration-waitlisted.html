@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Registration Waitlisted</title>
+</head>
+<body>
+<div th:fragment="content">
+    <h2>Registration Waitlisted</h2>
+
+    <p>Dear <span th:text="${playerName}">Player</span>,</p>
+
+    <p>Your registration for <strong th:text="${tournamentName}">Tournament</strong> has been placed on the <span class="status-waitlisted">waitlist</span>.</p>
+
+    <p>Your registration status has been changed from <span th:text="${oldStatus}">PENDING</span> to <span class="status-waitlisted">WAITLISTED</span>.</p>
+
+    <p>This means that the tournament has currently reached its capacity. However, you're on our waitlist and will be automatically moved to the approved list if a spot becomes available before the tournament starts.</p>
+
+    <p>How the waitlist works:</p>
+    <ul>
+        <li>If a registered player cancels their registration, waitlisted players are automatically moved to the approved list</li>
+        <li>Waitlisted players are processed in the order of their original registration</li>
+        <li>You will receive an email notification if your status changes from waitlisted to approved</li>
+    </ul>
+
+    <p>You can log in to your account at any time to check your current registration status.</p>
+
+    <p>Best regards,<br>
+        Tennis Tournament Team</p>
+</div>
+</body>
+</html>

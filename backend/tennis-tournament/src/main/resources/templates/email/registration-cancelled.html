@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Registration Cancelled</title>
+</head>
+<body>
+<div th:fragment="content">
+    <h2>Registration Cancelled</h2>
+
+    <p>Dear <span th:text="${playerName}">Player</span>,</p>
+
+    <p>Your registration for <strong th:text="${tournamentName}">Tournament</strong> has been <span style="color: #F44336; font-weight: bold;">cancelled</span>.</p>
+
+    <p>Cancellation Details:</p>
+    <ul>
+        <li><strong>Tournament:</strong> <span th:text="${tournamentName}">Tournament Name</span></li>
+        <li><strong>Cancellation Date:</strong> <span th:text="${cancellationDate}">2025-01-01</span></li>
+    </ul>
+
+    <p>If you did not initiate this cancellation or believe this was done in error, please contact the tournament administrators immediately.</p>
+
+    <p>Otherwise, we hope to see you participating in future tournaments!</p>
+
+    <p>Best regards,<br>
+        Tennis Tournament Team</p>
+</div>
+</body>
+</html>

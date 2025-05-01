@@ -43,4 +43,16 @@ public class UserDto {
     private String password;
 
     private User.UserType userType;
+
+    // Player-specific fields
+    private User.HandPreference handPreference;
+
+    // Additional fields for tournament-related filtering
+    private String tournamentStatus;
+    private String tournamentName;
+    private Long tournamentId;
+
+    // Referee-specific fields
+    private String certificationLevel;
+    private Integer yearsOfExperience;
 }

@@ -41,6 +41,7 @@ public class MatchService {
     private final UserRepository userRepository;
     private final TournamentRegistrationRepository registrationRepository;
     private final NotificationService notificationService;
+    private final RefereeNotificationService refereeNotificationService;
 
     public List<MatchDto> getAllMatches() {
         return matchRepository.findAll().stream()
@@ -144,6 +145,7 @@ public class MatchService {
 
             // Send notification to referee about assignment
             sendRefereeAssignmentNotification(savedMatch);
+            refereeNotificationService.notifyRefereeOfAssignment(savedMatch, true);
 
             return mapToDto(savedMatch);
         } catch (IllegalStateException e) {
@@ -214,6 +216,9 @@ public class MatchService {
             // Send notification to referee if they've been newly assigned
             if (refereeChanged) {
                 sendRefereeAssignmentNotification(savedMatch);
+                refereeNotificationService.notifyRefereeOfAssignment(savedMatch, true);
+            } else {
+                refereeNotificationService.notifyRefereeOfAssignment(savedMatch, false);
             }
 
             return mapToDto(savedMatch);
@@ -240,6 +245,7 @@ public class MatchService {
             }
 
             // Allow changing referee
+            boolean refereeChanged = false;
             if (!existingMatch.getReferee().getId().equals(matchDto.getRefereeId())) {
                 User newReferee = userRepository.findById(matchDto.getRefereeId())
                         .orElseThrow(() -> new ResourceNotFoundException("Referee not found with id: " + matchDto.getRefereeId()));
@@ -249,6 +255,7 @@ public class MatchService {
                 }
 
                 existingMatch.setReferee(newReferee);
+                refereeChanged = true;
 
                 // Send notification to the new referee
                 sendRefereeAssignmentNotification(existingMatch);
@@ -260,10 +267,20 @@ public class MatchService {
             }
 
             existingMatch.setStatus(matchDto.getStatus());
+
+            Match savedMatch = matchRepository.save(existingMatch);
+
+            // If referee was changed, notify the new referee
+            if (refereeChanged) {
+                refereeNotificationService.notifyRefereeOfAssignment(savedMatch, true);
+            }
+
+            return mapToDto(savedMatch);
         } else if (existingMatch.getStatus() == Match.MatchStatus.COMPLETED) {
             // For completed matches, only allow changing to CANCELLED
             if (matchDto.getStatus() == Match.MatchStatus.CANCELLED) {
                 existingMatch.setStatus(Match.MatchStatus.CANCELLED);
+                refereeNotificationService.notifyRefereeOfCancellation(existingMatch);
             } else if (matchDto.getStatus() != Match.MatchStatus.COMPLETED) {
                 throw new IllegalArgumentException("Completed match can only be updated to CANCELLED");
             }
@@ -292,6 +309,7 @@ public class MatchService {
         // Send cancellation notification if not already cancelled
         if (match.getStatus() != Match.MatchStatus.CANCELLED) {
             sendMatchCancelledNotification(match);
+            refereeNotificationService.notifyRefereeOfCancellation(match);
         }
 
         matchRepository.deleteById(id);

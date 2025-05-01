@@ -19,7 +19,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -34,6 +36,7 @@ public class TournamentRegistrationService {
     private final TournamentRepository tournamentRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final EmailService emailService;
 
     public List<TournamentRegistrationDto> getRegistrationsByPlayer(Long playerId) {
         User player = userRepository.findById(playerId)
@@ -271,6 +274,23 @@ public class TournamentRegistrationService {
                 .build();
 
         notificationService.sendNotification(notification);
+
+        // Send email notification
+        User player = registration.getPlayer();
+        String subject = "Tennis Tournament Registration Received";
+
+        Map<String, Object> emailVars = new HashMap<>();
+        emailVars.put("playerName", player.getFirstName() + " " + player.getLastName());
+        emailVars.put("tournamentName", tournamentName);
+        emailVars.put("status", registration.getStatus().toString());
+        emailVars.put("registrationDate", registration.getRegistrationDate().toString());
+
+        emailService.sendTemplateEmail(
+                player.getEmail(),
+                subject,
+                "registration-confirmation",
+                emailVars
+        );
     }
 
     /**
@@ -280,6 +300,8 @@ public class TournamentRegistrationService {
         String tournamentName = registration.getTournament().getName();
         String message;
         String type;
+        String emailSubject;
+        String emailTemplate;
 
         switch (registration.getStatus()) {
             case APPROVED:
@@ -288,6 +310,8 @@ public class TournamentRegistrationService {
                         tournamentName
                 );
                 type = "REGISTRATION_APPROVED";
+                emailSubject = "Registration Approved for " + tournamentName;
+                emailTemplate = "registration-approved";
                 break;
             case REJECTED:
                 message = String.format(
@@ -295,6 +319,8 @@ public class TournamentRegistrationService {
                         tournamentName
                 );
                 type = "REGISTRATION_REJECTED";
+                emailSubject = "Registration Not Approved for " + tournamentName;
+                emailTemplate = "registration-rejected";
                 break;
             case WAITLISTED:
                 message = String.format(
@@ -302,6 +328,8 @@ public class TournamentRegistrationService {
                         tournamentName
                 );
                 type = "REGISTRATION_WAITLISTED";
+                emailSubject = "You've Been Waitlisted for " + tournamentName;
+                emailTemplate = "registration-waitlisted";
                 break;
             default:
                 message = String.format(
@@ -309,6 +337,8 @@ public class TournamentRegistrationService {
                         tournamentName, oldStatus, registration.getStatus()
                 );
                 type = "REGISTRATION_STATUS_CHANGE";
+                emailSubject = "Registration Status Updated for " + tournamentName;
+                emailTemplate = "registration-status-change";
         }
 
         NotificationDto notification = NotificationDto.builder()
@@ -320,6 +350,23 @@ public class TournamentRegistrationService {
                 .build();
 
         notificationService.sendNotification(notification);
+
+        // Send email notification
+        User player = registration.getPlayer();
+
+        Map<String, Object> emailVars = new HashMap<>();
+        emailVars.put("playerName", player.getFirstName() + " " + player.getLastName());
+        emailVars.put("tournamentName", tournamentName);
+        emailVars.put("newStatus", registration.getStatus().toString());
+        emailVars.put("oldStatus", oldStatus.toString());
+        emailVars.put("updateDate", LocalDateTime.now().toString());
+
+        emailService.sendTemplateEmail(
+                player.getEmail(),
+                emailSubject,
+                emailTemplate,
+                emailVars
+        );
     }
 
     /**
@@ -341,6 +388,22 @@ public class TournamentRegistrationService {
                 .build();
 
         notificationService.sendNotification(notification);
+
+        // Send email notification
+        User player = registration.getPlayer();
+        String subject = "Tournament Registration Cancelled";
+
+        Map<String, Object> emailVars = new HashMap<>();
+        emailVars.put("playerName", player.getFirstName() + " " + player.getLastName());
+        emailVars.put("tournamentName", tournamentName);
+        emailVars.put("cancellationDate", LocalDateTime.now().toString());
+
+        emailService.sendTemplateEmail(
+                player.getEmail(),
+                subject,
+                "registration-cancelled",
+                emailVars
+        );
     }
 
     private void notifyAdminsAboutRegistration(TournamentRegistration registration) {

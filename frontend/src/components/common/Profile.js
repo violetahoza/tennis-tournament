@@ -278,7 +278,7 @@ const Profile = () => {
         </Card>
         
         {/* Player specific fields */}
-        {/* {userType === 'PLAYER' && (
+        {userType === 'PLAYER' && (
           <Card sx={{ mb: 4 }}>
             <CardContent>
               <Typography variant="h6" gutterBottom>Player Information</Typography>
@@ -304,9 +304,9 @@ const Profile = () => {
               </Grid>
             </CardContent>
           </Card>
-        )} */}
+        )}
         
-        {/* Referee specific fields
+        {/* Referee specific fields */}
         {userType === 'REFEREE' && (
           <Card sx={{ mb: 4 }}>
             <CardContent>
@@ -335,7 +335,7 @@ const Profile = () => {
               </Grid>
             </CardContent>
           </Card>
-        )} */}
+        )} 
         
         <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
           <Button

@@ -6,6 +6,7 @@ import {
   SportsHandball as MatchIcon, 
   ScoreboardOutlined as ScoringIcon,
   Person as ProfileIcon, 
+  Group as PlayersIcon,
   Logout as LogoutIcon 
 } from '@mui/icons-material';
 import { useContext } from 'react';
@@ -16,6 +17,8 @@ import Notifications from '../common/Notifications';
 import MatchSchedule from './MatchSchedule';
 import MatchScoring from './MatchScoring';
 import Profile from './../common/Profile';
+import PlayerList from './PlayerList';
+import PlayerDetails from './PlayerDetails';
 
 const Dashboard = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -50,6 +53,12 @@ const Dashboard = () => {
             <MatchIcon />
           </ListItemIcon>
           <ListItemText primary="My Matches" />
+        </ListItem>
+        <ListItem button onClick={() => handleNavigation('/referee/players')}>
+          <ListItemIcon>
+            <PlayersIcon />
+          </ListItemIcon>
+          <ListItemText primary="Player Directory" />
         </ListItem>
         <ListItem button onClick={() => handleNavigation('/referee/profile')}>
           <ListItemIcon>
@@ -136,6 +145,8 @@ const Dashboard = () => {
           <Route path="/" element={<MatchSchedule />} />
           <Route path="/matches" element={<MatchSchedule />} />
           <Route path="/matches/:id/score" element={<MatchScoring />} />
+          <Route path="/players" element={<PlayerList />} />
+          <Route path="/players/:id" element={<PlayerDetails />} />
           <Route path="/profile" element={<Profile />} />
         </Routes>
       </Box>
